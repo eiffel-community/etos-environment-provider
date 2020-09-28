@@ -19,4 +19,4 @@ eiffellib==1.1.0
 requests==2.24.0
 jsontas==1.2.0
 packageurl-python==0.9.1
-etos-lib==0.0.post0.dev2+g773b419
+etos_lib==1.0.0
