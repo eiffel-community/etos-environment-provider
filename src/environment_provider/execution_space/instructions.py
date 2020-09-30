@@ -15,6 +15,7 @@
 # limitations under the License.
 """Execution space provider instructions module."""
 from uuid import uuid4
+from copy import deepcopy
 from jsontas.data_structures.datastructure import DataStructure
 
 
@@ -27,7 +28,7 @@ class Instructions(DataStructure):  # pylint:disable=too-few-public-methods
         :return: Name of key and execution space spin-up instructions.
         :rtype: tuple
         """
-        instructions = self.datasubset.get("instructions")
+        instructions = deepcopy(self.datasubset.get("instructions"))
         instructions["environment"].update(self.data.get("environment", {}))
         instructions["parameters"].update(self.data.get("parameters", {}))
         instructions["image"] = self.data.get("image", instructions["image"])
