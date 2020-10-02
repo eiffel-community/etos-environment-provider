@@ -59,6 +59,7 @@ class List:  # pylint:disable=too-few-public-methods
                     "RABBITMQ_EXCHANGE": rabbitmq.get("exchange"),
                     "RABBITMQ_PORT": rabbitmq.get("port"),
                     "RABBITMQ_VHOST": rabbitmq.get("vhost"),
+                    "RABBITMQ_SSL": rabbitmq.get("ssl"),
                     "SOURCE_HOST": self.etos.config.get("source").get("host"),
                     "ETOS_GRAPHQL_SERVER": self.etos.debug.graphql_server,
                     "ETOS_API": self.etos.debug.etos_api,
