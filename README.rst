@@ -2,6 +2,8 @@
 ETOS Environment Provider
 =========================
 
+.. image:: https://img.shields.io/badge/Stage-Sandbox-yellow.svg
+  :target: https://github.com/eiffel-community/community/blob/master/PROJECT_LIFECYCLE.md#stage-sandbox
 
 ETOS (Eiffel Test Orchestration System) Environment Provider
 
