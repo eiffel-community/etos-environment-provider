@@ -1,0 +1,24 @@
+FROM python:3.8.3-buster AS build
+
+COPY . /src
+WORKDIR /src
+RUN python3 setup.py bdist_wheel
+
+FROM python:3.8.3-slim-buster
+
+COPY --from=build /src/dist/*.whl /tmp
+# hadolint ignore=DL3013
+RUN pip install --no-cache-dir /tmp/*.whl
+
+RUN groupadd -r etos && useradd -r -s /bin/false -g etos etos
+USER etos
+EXPOSE 8080
+
+LABEL org.opencontainers.image.source=https://github.com/eiffel-community/etos-environment-provider
+LABEL org.opencontainers.image.authors=etos-maintainers@googlegroups.com
+LABEL org.opencontainers.image.licenses=Apache-2.0
+
+COPY src/worker.sh /worker.sh
+
+ENV CELERY_CMD_ARGS="-P eventlet -c 1000 -l DEBUG"
+ENTRYPOINT ["./worker.sh"]
