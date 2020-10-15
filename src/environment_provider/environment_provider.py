@@ -135,6 +135,13 @@ class EnvironmentProvider(APP.Task):  # pylint:disable=too-many-instance-attribu
         self.dataset.add("context", self.environment_provider_config.context)
         self.dataset.add("custom_data", self.environment_provider_config.custom_data)
         self.dataset.add("uuid", str(uuid.uuid4()))
+        self.dataset.add(
+            "artifact_created", self.environment_provider_config.artifact_created
+        )
+        self.dataset.add(
+            "artifact_published", self.environment_provider_config.artifact_published
+        )
+        self.dataset.add("tercc", self.environment_provider_config.artifact_created)
         self.dataset.merge(self.registry.dataset(suite_id))
         self.update_state(state="CONFIGURED")
 

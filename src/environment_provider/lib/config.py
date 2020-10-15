@@ -18,16 +18,21 @@ import os
 import time
 import logging
 from packageurl import PackageURL
-from .graphql import request_tercc, request_activity_triggered
+from .graphql import (
+    request_tercc,
+    request_activity_triggered,
+    request_artifact_published,
+)
 
 
-class Config:
+class Config:  # pylint:disable=too-many-instance-attributes
     """Environment provider configuration."""
 
     logger = logging.getLogger("Config")
     __test_suite = None
     generated = False
     artifact_created = None
+    artifact_published = None
     activity_triggered = None
     tercc = None
 
@@ -144,6 +149,13 @@ class Config:
                     self.activity_triggered = response["activityTriggered"]["edges"][0][
                         "node"
                     ]
+
+                    response = request_artifact_published(self.etos, self.artifact_id)
+                    # ArtifactPublished is not required and can be None.
+                    if response:
+                        self.artifact_published = response["artifactPublished"][
+                            "edges"
+                        ][0]["node"]
                 except:  # noqa, pylint:disable=bare-except
                     pass
                 time.sleep(1)

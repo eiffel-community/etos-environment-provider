@@ -108,3 +108,35 @@ def request_activity_triggered(etos, suite_id):
         if response:
             return response
     return None
+
+
+def request_artifact_published(etos, artifact_id):
+    """Request an artifact published event from graphql.
+
+    :param etos: ETOS library instance.
+    :type etos: :obj:`etos_lib.etos.Etos`
+    :param artifact_id: ID of artifact created the artifact published links to.
+    :type artifact_id: str
+    :return: Response from graphql or None
+    :rtype: dict or None
+    """
+    query = """
+{
+  artifactPublished(last: 1, search: "{'links.type': 'ARTIFACT', 'links.target': '%s'}") {
+    edges {
+      node {
+        data {
+          locations {
+            type
+            uri
+          }
+        }
+      }
+    }
+  }
+}
+    """
+    for response in request(etos, query % artifact_id):
+        if response:
+            return response
+    return None
