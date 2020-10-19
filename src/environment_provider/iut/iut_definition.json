@@ -16,31 +16,40 @@
                 "prepare": {
                     "type": "object",
                     "properties": {
-                        "commands": {
-                            "items": {
-                                "properties": {
-                                    "command": {
-                                        "items": {
-                                            "type": "string"
-                                        },
-                                        "type": "array"
-                                    },
-                                    "threaded": { "type": "boolean" }
+                        "stages": {
+                            "type": "object",
+                            "properties": {
+                                "environment_provider": {
+                                    "type": "object",
+                                    "properties": {
+                                        "steps": {
+                                            "type": "object"
+                                        }
+                                    }
                                 },
-                                "required": [
-                                    "command"
-                                ],
-                                "type": "object"
-                            },
-                            "type": "array"
+                                "suite_runner": {
+                                    "type": "object",
+                                    "properties": {
+                                        "steps": {
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "test_runner": {
+                                    "type": "object",
+                                    "properties": {
+                                        "steps": {
+                                            "type": "object"
+                                        }
+                                    }
+                                }
+                            }
                         },
-                        "environment": {
-                            "type": "object"
-                        }
+                        "additionalProperties": false
                     },
                     "additionalProperties": false,
                     "required": [
-                        "commands"
+                        "stages"
                     ]
                 }
             },
