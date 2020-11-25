@@ -35,7 +35,7 @@ from environment_provider.execution_space.execution_space_provider import (
     ExecutionSpaceProvider,
 )
 from environment_provider.execution_space.execution_space import ExecutionSpace
-from .environment_provider import EnvironmentProvider
+from .environment_provider import get_environment
 
 
 class Webserver:
@@ -165,7 +165,7 @@ class Webserver:
         :type response: :obj:`falcon.response`
         """
         self.request = request
-        task = EnvironmentProvider().delay(self.suite_id)
+        task = get_environment.delay(self.suite_id)
         data = {"result": "success", "data": {"id": task.id}}
         response.status = falcon.HTTP_200
         response.media = data

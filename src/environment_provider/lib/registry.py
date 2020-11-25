@@ -44,7 +44,6 @@ class ProviderRegistry:
         self.etos = etos
         self.jsontas = jsontas
         self.etos.config.set("PROVIDERS", [])
-        self.base_json_path = "json_files/"
         self.database = Database()
 
     def is_configured(self, suite_id):

@@ -21,7 +21,6 @@ import logging
 import traceback
 import json
 from copy import deepcopy
-from celery.registry import tasks  # pylint:disable=import-error,no-name-in-module
 from etos_lib.etos import ETOS
 from jsontas.jsontas import JsonTas
 from environment_provider.splitter.split import Splitter
@@ -48,11 +47,10 @@ class EnvironmentProviderNotConfigured(Exception):
     """Environment provider was not configured prior to request."""
 
 
-class EnvironmentProvider(APP.Task):  # pylint:disable=too-many-instance-attributes
+class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     """Environment provider celery Task."""
 
     logger = logging.getLogger("EnvironmentProvider")
-    name = "EnvironmentProvider"
     environment_provider_config = None
     iut_provider = None
     log_area_provider = None
@@ -88,7 +86,6 @@ class EnvironmentProvider(APP.Task):  # pylint:disable=too-many-instance-attribu
         :param suite_id: Suite ID for this task.
         :type suite_id: str
         """
-        self.update_state(state="CONFIGURING")
         self.logger.info("Configure environment provider.")
         if not self.registry.wait_for_configuration(suite_id):
             # TODO: Add link ref to docs that describe how the config is done.
@@ -141,13 +138,11 @@ class EnvironmentProvider(APP.Task):  # pylint:disable=too-many-instance-attribu
         self.dataset.add(
             "artifact_published", self.environment_provider_config.artifact_published
         )
-        self.dataset.add("tercc", self.environment_provider_config.artifact_created)
+        self.dataset.add("tercc", self.environment_provider_config.tercc)
         self.dataset.merge(self.registry.dataset(suite_id))
-        self.update_state(state="CONFIGURED")
 
     def cleanup(self):
         """Clean up by checkin in all checked out providers."""
-        self.update_state(state="FORCE_CLEANUP")
         self.logger.info("Cleanup by checking in all checked out providers.")
         for provider in self.etos.config.get("PROVIDERS"):
             try:
@@ -332,7 +327,6 @@ class EnvironmentProvider(APP.Task):  # pylint:disable=too-many-instance-attribu
         """
         try:
             self.configure(suite_id)
-            self.update_state(state="RUNNING")
             test_suites = self.create_test_suite_dict()
             for test_suite_name, test_runners in test_suites.items():
                 self.set_total_test_count_and_test_runners(test_runners)
@@ -380,8 +374,16 @@ class EnvironmentProvider(APP.Task):  # pylint:disable=too-many-instance-attribu
         finally:
             if self.etos.publisher is not None:
                 self.etos.publisher.stop()
-        self.update_state(state="SUCCESS")
 
 
-# Register the environment provider task to celery.
-tasks.register(EnvironmentProvider)
+@APP.task(name="EnvironmentProvider")
+def get_environment(suite_id):
+    """Get an environment for ETOS test executions.
+
+    :param suite_id: Suite ID to get an environment for
+    :type suite_id: str
+    :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
+    :rtype: dict
+    """
+    environment_provider = EnvironmentProvider()
+    return environment_provider.run(suite_id)
