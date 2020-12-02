@@ -20,6 +20,7 @@ import uuid
 import logging
 import traceback
 import json
+from threading import Lock
 from copy import deepcopy
 from etos_lib.etos import ETOS
 from jsontas.jsontas import JsonTas
@@ -56,6 +57,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     log_area_provider = None
     execution_space_provider = None
     task_track_started = True
+    lock = Lock()
 
     def __init__(self):
         """Initialize ETOS, dataset, provider registry and splitter."""
@@ -63,16 +65,17 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.etos = ETOS(
             "ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider"
         )
-        # Since celery workers can share memory between them we need to make the configuration
-        # of ETOS library unique as it uses the memory sharing feature with the internal
-        # configuration dictionary.
-        # The impact of not doing this is that the environment provider would re-use
-        # another workers configuration instead of using its own.
-        self.etos.config.config = deepcopy(
-            self.etos.config.config
-        )  # pylint:disable=protected-access
-        self.jsontas = JsonTas()
-        self.dataset = self.jsontas.dataset
+        with self.lock:
+            # Since celery workers can share memory between them we need to make the configuration
+            # of ETOS library unique as it uses the memory sharing feature with the internal
+            # configuration dictionary.
+            # The impact of not doing this is that the environment provider would re-use
+            # another workers configuration instead of using its own.
+            self.etos.config.config = deepcopy(
+                self.etos.config.config
+            )  # pylint:disable=protected-access
+            self.jsontas = JsonTas()
+            self.dataset = self.jsontas.dataset
 
         self.dataset.add("json_dumps", JsonDumps)
         self.dataset.add("uuid_generate", UuidGenerate)
