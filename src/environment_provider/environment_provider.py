@@ -15,7 +15,6 @@
 # limitations under the License.
 """ETOS Environment Provider celery task module."""
 import os
-import sys
 import uuid
 import logging
 import traceback
@@ -23,6 +22,7 @@ import json
 from threading import Lock
 from copy import deepcopy
 from etos_lib.etos import ETOS
+from etos_lib.logging.logger import FORMAT_CONFIG
 from jsontas.jsontas import JsonTas
 from environment_provider.splitter.split import Splitter
 from .lib.celery import APP
@@ -33,10 +33,6 @@ from .lib.json_dumps import JsonDumps
 from .lib.uuid_generate import UuidGenerate
 from .lib.join import Join
 
-LOGFORMAT = "[%(asctime)s] %(levelname)s:%(name)-22s: %(message)s"
-logging.basicConfig(
-    level=logging.INFO, stream=sys.stdout, format=LOGFORMAT, datefmt="%Y-%m-%d %H:%M:%S"
-)
 logging.getLogger("pika").setLevel(logging.WARNING)
 
 
@@ -59,8 +55,14 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     task_track_started = True
     lock = Lock()
 
-    def __init__(self):
-        """Initialize ETOS, dataset, provider registry and splitter."""
+    def __init__(self, suite_id):
+        """Initialize ETOS, dataset, provider registry and splitter.
+
+        :param suite_id: Suite ID to get an environment for
+        :type suite_id: str
+        """
+        self.suite_id = suite_id
+        FORMAT_CONFIG.identifier = suite_id
         self.logger.info("Initializing EnvironmentProvider task.")
         self.etos = ETOS(
             "ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider"
@@ -106,6 +108,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.etos.config.set("WAIT_FOR_IUT_TIMEOUT", 10)
         self.etos.config.set("WAIT_FOR_EXECUTION_SPACE_TIMEOUT", 10)
         self.etos.config.set("WAIT_FOR_LOG_AREA_TIMEOUT", 10)
+        self.etos.config.set("SUITE_ID", suite_id)
 
         self.etos.config.rabbitmq_publisher_from_environment()
         self.etos.start_publisher()
@@ -320,16 +323,14 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             self.logger.error(json_data)
             raise
 
-    def run(self, suite_id):
+    def run(self):
         """Run the environment provider task.
 
-        :param suite_id: Suite ID to get an environment for
-        :type suite_id: str
         :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
         :rtype: dict
         """
         try:
-            self.configure(suite_id)
+            self.configure(self.suite_id)
             test_suites = self.create_test_suite_dict()
             for test_suite_name, test_runners in test_suites.items():
                 self.set_total_test_count_and_test_runners(test_runners)
@@ -388,5 +389,5 @@ def get_environment(suite_id):
     :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
     :rtype: dict
     """
-    environment_provider = EnvironmentProvider()
-    return environment_provider.run(suite_id)
+    environment_provider = EnvironmentProvider(suite_id)
+    return environment_provider.run()

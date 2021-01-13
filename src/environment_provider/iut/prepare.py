@@ -20,6 +20,7 @@ from multiprocessing.pool import ThreadPool
 from collections import OrderedDict
 from copy import deepcopy
 from jsontas.jsontas import JsonTas
+from etos_lib.logging.logger import FORMAT_CONFIG
 
 
 class Prepare:  # pylint:disable=too-few-public-methods
@@ -52,6 +53,7 @@ class Prepare:  # pylint:disable=too-few-public-methods
         :param preparation_steps: Steps to execute to prepare an IUT.
         :type preparation_steps: dict
         """
+        FORMAT_CONFIG.identifier = self.config.get("SUITE_ID")
         try:
             with self.lock:
                 dataset = self.dataset.copy()

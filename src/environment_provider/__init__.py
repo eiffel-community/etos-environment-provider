@@ -15,5 +15,13 @@
 # limitations under the License.
 """ETOS environment provider module."""
 import os
+from importlib.metadata import version, PackageNotFoundError
+from etos_lib.logging.logger import setup_logging
+
+try:
+    VERSION = version("environment_provider")
+except PackageNotFoundError:
+    VERSION = "Unknown"
 
 BASE = os.path.dirname(os.path.abspath(__file__))
+setup_logging("ETOS Environment Provider", VERSION, "development")
