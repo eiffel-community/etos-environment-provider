@@ -24,4 +24,6 @@ except PackageNotFoundError:
     VERSION = "Unknown"
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-setup_logging("ETOS Environment Provider", VERSION, "development")
+DEV = os.getenv("DEV", "false").lower() == "true"
+ENVIRONMENT = "development" if DEV else "production"
+setup_logging("ETOS Environment Provider", VERSION, ENVIRONMENT)
