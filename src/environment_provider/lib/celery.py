@@ -16,8 +16,7 @@
 """Celery connection module."""
 import os
 from celery import Celery
-from etos_lib.logging.logger import setup_logging, FORMAT_CONFIG
-from environment_provider import VERSION, ENVIRONMENT
+from etos_lib.logging.logger import FORMAT_CONFIG
 
 
 FORMAT_CONFIG.identifier = "TaskListener"
@@ -45,4 +44,3 @@ else:
     APP.conf.broker_transport_options = {"master_name": "mymaster"}
     APP.conf.result_backend_transport_options = {"master_name": "mymaster"}
 APP.conf.worker_hijack_root_logger = False
-setup_logging("ETOS Environment Provider", VERSION, ENVIRONMENT)
