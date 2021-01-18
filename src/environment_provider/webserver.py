@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,14 +15,13 @@
 # limitations under the License.
 """ETOS Environment Provider webserver module."""
 import os
-import sys
-import logging
 import traceback
 import json
 import falcon
 
 from etos_lib.etos import ETOS
 from etos_lib.lib.database import Database
+from etos_lib.logging.logger import FORMAT_CONFIG
 from jsontas.jsontas import JsonTas
 from environment_provider.middleware import RequireJSON, JSONTranslator
 from environment_provider.lib.celery import APP
@@ -180,9 +179,6 @@ class Configure:
 
     request = None
     registry = None
-    __iut_provider = None
-    __execution_space_provider = None
-    __log_area_provider = None
 
     @property
     def suite_id(self):
@@ -197,47 +193,35 @@ class Configure:
     @property
     def iut_provider(self):
         """Get IUT provider from media parameters."""
-        if self.__iut_provider is None:
-            iut_provider = self.request.media.get("iut_provider")
-            if iut_provider is None:
-                raise falcon.HTTPBadRequest(
-                    "Missing parameters", "'iut_provider' is a required parameter."
-                )
-            self.__iut_provider = self.registry.get_iut_provider_by_id(iut_provider)
-        return self.__iut_provider
+        iut_provider = self.request.media.get("iut_provider")
+        if iut_provider is None:
+            raise falcon.HTTPBadRequest(
+                "Missing parameters", "'iut_provider' is a required parameter."
+            )
+        return self.registry.get_iut_provider_by_id(iut_provider)
 
     @property
     def execution_space_provider(self):
         """Get execution space provider from media parameters."""
-        if self.__execution_space_provider is None:
-            execution_space_provider = self.request.media.get(
-                "execution_space_provider"
+        execution_space_provider = self.request.media.get("execution_space_provider")
+        if execution_space_provider is None:
+            raise falcon.HTTPBadRequest(
+                "Missing parameters",
+                "'execution_space_provider' is a required parameter.",
             )
-            if execution_space_provider is None:
-                raise falcon.HTTPBadRequest(
-                    "Missing parameters",
-                    "'execution_space_provider' is a required parameter.",
-                )
-            self.__execution_space_provider = (
-                self.registry.get_execution_space_provider_by_id(
-                    execution_space_provider
-                )
-            )
-        return self.__execution_space_provider
+        return self.registry.get_execution_space_provider_by_id(
+            execution_space_provider
+        )
 
     @property
     def log_area_provider(self):
         """Get log area provider from media parameters."""
-        if self.__log_area_provider is None:
-            log_area_provider = self.request.media.get("log_area_provider")
-            if log_area_provider is None:
-                raise falcon.HTTPBadRequest(
-                    "Missing parameters", "'log_area_provider' is a required parameter."
-                )
-            self.__log_area_provider = self.registry.get_log_area_provider_by_id(
-                log_area_provider
+        log_area_provider = self.request.media.get("log_area_provider")
+        if log_area_provider is None:
+            raise falcon.HTTPBadRequest(
+                "Missing parameters", "'log_area_provider' is a required parameter."
             )
-        return self.__log_area_provider
+        return self.registry.get_log_area_provider_by_id(log_area_provider)
 
     @property
     def dataset(self):
@@ -265,30 +249,34 @@ class Configure:
         self.registry = ProviderRegistry(etos, jsontas)
         try:
             assert self.suite_id is not None, "Invalid suite ID"
+            FORMAT_CONFIG.identifier = self.suite_id
+            iut_provider = self.iut_provider
+            log_area_provider = self.log_area_provider
+            execution_space_provider = self.execution_space_provider
             assert (
-                self.iut_provider is not None
+                iut_provider is not None
             ), "No such IUT provider %r" % self.request.media.get("iut_provider")
             assert (
-                self.execution_space_provider is not None
+                execution_space_provider is not None
             ), "No such execution space provider %r" % self.request.media.get(
                 "execution_space_provider"
             )
             assert (
-                self.log_area_provider is not None
+                log_area_provider is not None
             ), "No such log area provider %r" % self.request.media.get(
                 "log_area_provider"
             )
             assert self.dataset is not None, "Invalid dataset."
             response.media = {
-                "IUTProvider": self.iut_provider,
-                "ExecutionSpaceProvider": self.execution_space_provider,
-                "LogAreaProvider": self.log_area_provider,
+                "IUTProvider": iut_provider,
+                "ExecutionSpaceProvider": execution_space_provider,
+                "LogAreaProvider": log_area_provider,
             }
             self.registry.configure_environment_provider_for_suite(
                 self.suite_id,
-                self.iut_provider,
-                self.log_area_provider,
-                self.execution_space_provider,
+                iut_provider,
+                log_area_provider,
+                execution_space_provider,
                 self.dataset,
             )
         except AssertionError as exception:
@@ -306,6 +294,7 @@ class Configure:
         :type response: :obj:`falcon.response`
         """
         suite_id = request.get_param("suite_id")
+        FORMAT_CONFIG.identifier = suite_id
         etos = ETOS(
             "ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider"
         )
@@ -425,11 +414,6 @@ class SubSuite:  # pylint:disable=too-few-public-methods
                 description="Could not find sub suite with ID %r" % sub_suite_id,
             )
 
-
-LOGFORMAT = "[%(asctime)s] %(levelname)s:%(name)-22s: %(message)s"
-logging.basicConfig(
-    level=logging.INFO, stream=sys.stdout, format=LOGFORMAT, datefmt="%Y-%m-%d %H:%M:%S"
-)
 
 FALCON_APP = falcon.API(middleware=[RequireJSON(), JSONTranslator()])
 WEBSERVER = Webserver()

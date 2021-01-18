@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2021 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -102,9 +102,11 @@ class ProviderRegistry:
         :return: Provider JSON or None.
         :rtype: dict or None
         """
+        self.logger.info("Getting log area provider %r", provider_id)
         provider = self.database.reader.hget(
             "EnvironmentProvider:LogAreaProviders", provider_id
         )
+        self.logger.debug(provider)
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
@@ -119,9 +121,11 @@ class ProviderRegistry:
         :return: Provider JSON or None.
         :rtype: dict or None
         """
+        self.logger.info("Getting iut provider %r", provider_id)
         provider = self.database.reader.hget(
             "EnvironmentProvider:IUTProviders", provider_id
         )
+        self.logger.debug(provider)
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
@@ -136,9 +140,11 @@ class ProviderRegistry:
         :return: Provider JSON or None.
         :rtype: dict or None
         """
+        self.logger.info("Getting execution space provider %r", provider_id)
         provider = self.database.reader.hget(
             "EnvironmentProvider:ExecutionSpaceProviders", provider_id
         )
+        self.logger.debug(provider)
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
@@ -297,6 +303,17 @@ class ProviderRegistry:
         :param dataset: Dataset to configure for suite ID.
         :type dataset: dict
         """
+        self.logger.info("Configuring environment provider.")
+        self.logger.info("Dataset: %r", dataset)
+        self.logger.info("IUT provider: %r", iut_provider.get("iut", {}).get("id"))
+        self.logger.info(
+            "Execution space provider: %r",
+            execution_space_provider.get("execution_space", {}).get("id"),
+        )
+        self.logger.info(
+            "Log area provider: %r", log_area_provider.get("log", {}).get("id")
+        )
+        self.logger.info("Expire: 3600")
         self.database.writer.hset(
             "EnvironmentProvider:{}".format(suite_id), "Dataset", json.dumps(dataset)
         )
