@@ -2,14 +2,6 @@
 Changelog
 =========
 
-Version 1.9.0
--------------
-
-- bf8dee9 Update etos library to version 1.9.0
-- 915da51 Fix a bug with providers being reused improperly (#25)
-- 5412861 Remove extra setup_logging (#24)
-- 19e111b Add logging support from etos library (#23)
-
 Version 1.8.0
 -------------
 
