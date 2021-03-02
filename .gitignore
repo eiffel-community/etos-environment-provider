@@ -21,6 +21,7 @@ __pycache__/*
 .settings
 .idea
 tags
+.vscode/*
 
 # Package files
 *.egg
@@ -48,3 +49,5 @@ MANIFEST
 
 # Per-project virtualenvs
 .venv*/
+.python-version
+

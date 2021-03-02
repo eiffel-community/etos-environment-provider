@@ -144,7 +144,8 @@ class IutProvider:
                     raise IutNotAvailable(self.identity.to_string())
 
                 prepared_iuts = self.prepare(checked_out_iuts)
-                checkin = set(prepared_iuts) - set(checked_out_iuts)
+                checkin = set(checked_out_iuts) - set(prepared_iuts)
+
                 for iut in checkin:
                     self.checkin(iut)
                 self.logger.info("Prepared IUTs:")

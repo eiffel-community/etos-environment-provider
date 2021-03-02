@@ -85,6 +85,7 @@ class Prepare:  # pylint:disable=too-few-public-methods
         :return: Prepared IUTs.
         :rtype: list
         """
+        iuts = deepcopy(iuts)
         try:
             if not self.prepare_ruleset:
                 self.logger.info("No defined preparation rule.")
