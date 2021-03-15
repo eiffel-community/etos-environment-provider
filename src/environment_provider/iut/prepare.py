@@ -86,6 +86,7 @@ class Prepare:  # pylint:disable=too-few-public-methods
         :rtype: list
         """
         iuts = deepcopy(iuts)
+        failed_iuts = []
         try:
             if not self.prepare_ruleset:
                 self.logger.info("No defined preparation rule.")
@@ -107,10 +108,11 @@ class Prepare:  # pylint:disable=too-few-public-methods
                 if not success:
                     self.logger.error("Unable to prepare %r.", iut)
                     iuts.remove(iut)
+                    failed_iuts.append(iut)
                 else:
                     iut.update(**deepcopy(stages))
             self.dataset.add("iuts", deepcopy(iuts))
-            return iuts
+            return iuts, failed_iuts
         finally:
             # Re-add the config that was popped in __init__.
             self.dataset.add("config", self.config)

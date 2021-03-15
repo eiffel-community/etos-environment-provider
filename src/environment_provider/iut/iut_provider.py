@@ -143,10 +143,9 @@ class IutProvider:
                 if len(checked_out_iuts) < minimum_amount:
                     raise IutNotAvailable(self.identity.to_string())
 
-                prepared_iuts = self.prepare(checked_out_iuts)
-                checkin = set(checked_out_iuts) - set(prepared_iuts)
+                prepared_iuts, unprepared_iuts = self.prepare(checked_out_iuts)
 
-                for iut in checkin:
+                for iut in unprepared_iuts:
                     self.checkin(iut)
                 self.logger.info("Prepared IUTs:")
                 for iut in prepared_iuts:
