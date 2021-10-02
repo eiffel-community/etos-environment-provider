@@ -161,7 +161,7 @@ class TestSuite:
         for test_runner, data in self.test_runners.items():
             for iut, suite in data.get("iuts", {}).items():
                 sub_suite = {
-                    "name": "{}_SubSuite_{}".format(self.test_suite_name, counter),
+                    "name": f"{self.test_suite_name}_SubSuite_{counter}",
                     "priority": data.get("priority"),
                     "recipes": suite.get("recipes", []),
                     "test_runner": test_runner,

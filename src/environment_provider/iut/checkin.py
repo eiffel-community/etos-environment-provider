@@ -53,7 +53,7 @@ class Checkin:
         self.dataset.add("iut", iut)
         verified = self.jsontas.run(self.checkin_ruleset)
         if not verified:
-            raise IutCheckinFailed("Unable to checkin %r" % iut)
+            raise IutCheckinFailed(f"Unable to checkin {iut}")
 
         try:
             self.dataset.get("iuts", []).remove(iut)

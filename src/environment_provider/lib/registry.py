@@ -54,9 +54,7 @@ class ProviderRegistry:
         :return: Whether or not a configuration exists for the suite ID.
         :rtype: bool
         """
-        configuration = self.database.reader.hgetall(
-            "EnvironmentProvider:{}".format(suite_id)
-        )
+        configuration = self.database.reader.hgetall(f"EnvironmentProvider:{suite_id}")
         return bool(configuration)
 
     def wait_for_configuration(self, suite_id):
@@ -87,7 +85,7 @@ class ProviderRegistry:
         self.logger.debug(
             "Validating provider %r against %r", provider, os.path.join(BASE, schema)
         )
-        with open(os.path.join(BASE, schema)) as schema_file:
+        with open(os.path.join(BASE, schema), encoding="UTF-8") as schema_file:
             schema = json.load(schema_file)
         jsonschema.validate(instance=provider, schema=schema)
         return provider
@@ -206,7 +204,7 @@ class ProviderRegistry:
         :rtype: :obj:`environment_provider.execution_space.ExecutionSpaceProvider`
         """
         provider_json = self.database.reader.hget(
-            "EnvironmentProvider:{}".format(suite_id), "ExecutionSpaceProvider"
+            f"EnvironmentProvider:{suite_id}", "ExecutionSpaceProvider"
         )
         self.logger.info(provider_json)
         if provider_json:
@@ -230,7 +228,7 @@ class ProviderRegistry:
         :rtype: :obj:`environment_provider.iut.iut_provider.IutProvider`
         """
         provider_json = self.database.reader.hget(
-            "EnvironmentProvider:{}".format(suite_id), "IUTProvider"
+            f"EnvironmentProvider:{suite_id}", "IUTProvider"
         )
         self.logger.info(provider_json)
         if provider_json:
@@ -252,7 +250,7 @@ class ProviderRegistry:
         :rtype: :obj:`environment_provider.logs.log_area_provider.LogAreaProvider`
         """
         provider_json = self.database.reader.hget(
-            "EnvironmentProvider:{}".format(suite_id), "LogAreaProvider"
+            f"EnvironmentProvider:{suite_id}", "LogAreaProvider"
         )
         self.logger.info(provider_json)
         if provider_json:
@@ -274,7 +272,7 @@ class ProviderRegistry:
         :rtype: dict
         """
         dataset = self.database.reader.hget(
-            "EnvironmentProvider:{}".format(suite_id), "Dataset"
+            f"EnvironmentProvider:{suite_id}", "Dataset"
         )
         if dataset:
             return json.loads(dataset)
@@ -315,21 +313,21 @@ class ProviderRegistry:
         )
         self.logger.info("Expire: 3600")
         self.database.writer.hset(
-            "EnvironmentProvider:{}".format(suite_id), "Dataset", json.dumps(dataset)
+            f"EnvironmentProvider:{suite_id}", "Dataset", json.dumps(dataset)
         )
         self.database.writer.hset(
-            "EnvironmentProvider:{}".format(suite_id),
+            f"EnvironmentProvider:{suite_id}",
             "IUTProvider",
             json.dumps(iut_provider),
         )
         self.database.writer.hset(
-            "EnvironmentProvider:{}".format(suite_id),
+            f"EnvironmentProvider:{suite_id}",
             "ExecutionSpaceProvider",
             json.dumps(execution_space_provider),
         )
         self.database.writer.hset(
-            "EnvironmentProvider:{}".format(suite_id),
+            f"EnvironmentProvider:{suite_id}",
             "LogAreaProvider",
             json.dumps(log_area_provider),
         )
-        self.database.writer.expire("EnvironmentProvider:{}".format(suite_id), 3600)
+        self.database.writer.expire(f"EnvironmentProvider:{suite_id}", 3600)

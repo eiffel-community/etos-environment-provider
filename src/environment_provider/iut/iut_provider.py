@@ -152,7 +152,7 @@ class IutProvider:
                     self.logger.info(iut)
                 if len(prepared_iuts) < minimum_amount:
                     raise IutNotAvailable(
-                        "Preparation of %r failed" % self.identity.to_string()
+                        f"Preparation of {self.identity.to_string()} failed"
                     )
                 break
             except NoIutFound:
@@ -182,9 +182,8 @@ class IutProvider:
             )
             prepared_iuts = []
         if len(prepared_iuts) < minimum_amount:
-            message = "Failed to checkout %r. Reason: %r" % (
-                self.identity.to_string(),
-                fail_reason,
+            message = (
+                f"Failed to checkout {self.identity.to_string()}. Reason: {fail_reason}"
             )
             raise IutNotAvailable(message)
         return prepared_iuts

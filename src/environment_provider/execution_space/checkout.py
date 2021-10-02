@@ -67,6 +67,6 @@ class Checkout:  # pylint:disable=too-few-public-methods
         self.dataset.add("execution_spaces", deepcopy(execution_spaces))
         if not execution_spaces:
             raise ExecutionSpaceCheckoutFailed(
-                "All ExecutionSpaces failed checkout. %r" % fail_message
+                f"All ExecutionSpaces failed checkout. {fail_message}"
             )
         return execution_spaces

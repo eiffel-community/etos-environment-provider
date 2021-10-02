@@ -114,7 +114,7 @@ class Webserver:
                 response.media = {**result}
             else:
                 response.media = {
-                    "warning": "Nothing to release with task_id '{}'".format(task_id),
+                    "warning": f"Nothing to release with task_id '{task_id}'",
                     **result,
                 }
         except Exception as exception:  # pylint:disable=broad-except
@@ -255,17 +255,14 @@ class Configure:
             execution_space_provider = self.execution_space_provider
             assert (
                 iut_provider is not None
-            ), "No such IUT provider %r" % self.request.media.get("iut_provider")
-            assert (
-                execution_space_provider is not None
-            ), "No such execution space provider %r" % self.request.media.get(
-                "execution_space_provider"
+            ), f"No such IUT provider {self.request.media.get('iut_provider')}"
+            assert execution_space_provider is not None, (
+                "No such execution space provider"
+                f"{self.request.media.get('execution_space_provider')}"
             )
             assert (
                 log_area_provider is not None
-            ), "No such log area provider %r" % self.request.media.get(
-                "log_area_provider"
-            )
+            ), f"No such log area provider {self.request.media.get('log_area_provider')}"
             assert self.dataset is not None, "Invalid dataset."
             response.media = {
                 "IUTProvider": iut_provider,
@@ -411,7 +408,7 @@ class SubSuite:  # pylint:disable=too-few-public-methods
         else:
             raise falcon.HTTPNotFound(
                 title="Sub suite not found.",
-                description="Could not find sub suite with ID %r" % sub_suite_id,
+                description=f"Could not find sub suite with ID {sub_suite_id}",
             )
 
 

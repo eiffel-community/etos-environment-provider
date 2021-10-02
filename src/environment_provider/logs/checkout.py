@@ -66,7 +66,5 @@ class Checkout:  # pylint:disable=too-few-public-methods
                 log_areas.remove(log_area)
         self.dataset.add("log_areas", deepcopy(log_areas))
         if not log_areas:
-            raise LogAreaCheckoutFailed(
-                "All LogAreas failed checkout. %r" % fail_message
-            )
+            raise LogAreaCheckoutFailed(f"All LogAreas failed checkout. {fail_message}")
         return log_areas

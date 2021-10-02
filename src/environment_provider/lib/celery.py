@@ -24,9 +24,9 @@ PORT = os.getenv("ETOS_DATABASE_PORT", "26379")
 HOST = os.getenv("ETOS_DATABASE_HOST", "localhost")
 PASSWORD = os.getenv("ETOS_DATABASE_PASSWORD", None)
 if PASSWORD:
-    CELERY_BROKER_URL = "sentinel://:{}@{}:{}".format(PASSWORD, HOST, PORT)
+    CELERY_BROKER_URL = f"sentinel://:{PASSWORD}@{HOST}:{PORT}"
 else:
-    CELERY_BROKER_URL = "sentinel://{}:{}".format(HOST, PORT)
+    CELERY_BROKER_URL = f"sentinel://{HOST}:{PORT}"
 
 APP = Celery(
     "environment_provider", broker=CELERY_BROKER_URL, backend=CELERY_BROKER_URL

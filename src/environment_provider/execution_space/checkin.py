@@ -54,7 +54,7 @@ class Checkin:
         self.dataset.add("execution_space", execution_space)
         verified = self.jsontas.run(self.checkin_ruleset)
         if not verified:
-            raise ExecutionSpaceCheckinFailed("Unable to checkin %r" % execution_space)
+            raise ExecutionSpaceCheckinFailed(f"Unable to checkin {execution_space}")
         try:
             self.dataset.get("execution_spaces", []).remove(execution_space)
         except ValueError:

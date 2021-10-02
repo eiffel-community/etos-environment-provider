@@ -66,5 +66,5 @@ class Checkout:  # pylint:disable=too-few-public-methods
                 iuts.remove(iut)
         self.dataset.add("iuts", deepcopy(iuts))
         if not iuts:
-            raise IutCheckoutFailed("All IUTs failed checkout. %r" % fail_message)
+            raise IutCheckoutFailed(f"All IUTs failed checkout. {fail_message}")
         return iuts

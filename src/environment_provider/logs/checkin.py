@@ -53,7 +53,7 @@ class Checkin:
         self.dataset.add("log_area", log_area)
         verified = self.jsontas.run(self.checkin_ruleset)
         if not verified:
-            raise LogAreaCheckinFailed("Unable to checkin %r" % log_area)
+            raise LogAreaCheckinFailed(f"Unable to checkin {log_area}")
         try:
             self.dataset.get("log_areas", []).remove(log_area)
         except ValueError:

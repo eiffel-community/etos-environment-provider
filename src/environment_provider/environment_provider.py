@@ -129,7 +129,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 ]
                 if value is None
             ]
-            raise NoEventDataFound("Missing: {}".format(", ".join(missing)))
+            raise NoEventDataFound(f"Missing: {', '.join(missing)}")
 
         self.dataset.add("environment", os.environ)
         self.dataset.add("config", self.etos.config)
