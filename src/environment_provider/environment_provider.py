@@ -104,10 +104,20 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.log_area_provider = self.registry.log_area_provider(suite_id)
         self.execution_space_provider = self.registry.execution_space_provider(suite_id)
 
-        self.etos.config.set("EVENT_DATA_TIMEOUT", 10)
-        self.etos.config.set("WAIT_FOR_IUT_TIMEOUT", 10)
-        self.etos.config.set("WAIT_FOR_EXECUTION_SPACE_TIMEOUT", 10)
-        self.etos.config.set("WAIT_FOR_LOG_AREA_TIMEOUT", 10)
+        self.etos.config.set(
+            "EVENT_DATA_TIMEOUT", int(os.getenv("ETOS_EVENT_DATA_TIMEOUT", "10"))
+        )
+        self.etos.config.set(
+            "WAIT_FOR_IUT_TIMEOUT", int(os.getenv("ETOS_WAIT_FOR_IUT_TIMEOUT", "10"))
+        )
+        self.etos.config.set(
+            "WAIT_FOR_EXECUTION_SPACE_TIMEOUT",
+            int(os.getenv("ETOS_WAIT_FOR_EXECUTION_SPACE_TIMEOUT", "10")),
+        )
+        self.etos.config.set(
+            "WAIT_FOR_LOG_AREA_TIMEOUT",
+            int(os.getenv("ETOS_WAIT_FOR_LOG_AREA_TIMEOUT", "10")),
+        )
         self.etos.config.set("SUITE_ID", suite_id)
 
         self.etos.config.rabbitmq_publisher_from_environment()
@@ -139,7 +149,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.dataset.add("custom_data", self.environment_provider_config.custom_data)
         self.dataset.add("uuid", str(uuid.uuid4()))
         self.dataset.add(
-            "artifact_created", self.environment_provider_config.artifact_created
+            "artifact_create", self.environment_provider_config.artifact_created
         )
         self.dataset.add(
             "artifact_published", self.environment_provider_config.artifact_published
