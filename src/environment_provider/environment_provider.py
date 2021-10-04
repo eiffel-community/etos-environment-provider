@@ -149,7 +149,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.dataset.add("custom_data", self.environment_provider_config.custom_data)
         self.dataset.add("uuid", str(uuid.uuid4()))
         self.dataset.add(
-            "artifact_create", self.environment_provider_config.artifact_created
+            "artifact_created", self.environment_provider_config.artifact_created
         )
         self.dataset.add(
             "artifact_published", self.environment_provider_config.artifact_published
