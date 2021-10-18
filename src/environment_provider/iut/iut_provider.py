@@ -106,6 +106,24 @@ class IutProvider:
         prepare_iuts = Prepare(self.jsontas, self.ruleset.get("prepare"))
         return prepare_iuts.prepare(iuts)
 
+    def _fail_message(self, last_exception):
+        """Generate a fail message for IUT provider.
+
+        :param last_exception: Latest exception that was raised within the wait method.
+        :type last_exception: :obj:`BaseException`
+        :return: A failure reason.
+        :rtype: str
+        """
+        timeout = self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
+        fail_reason = "Unknown"
+        if isinstance(last_exception, NoIutFound):
+            fail_reason = f"IUT not found in IUT provider '{self.id}'"
+        elif isinstance(last_exception, IutNotAvailable):
+            fail_reason = f"No IUT became available within {timeout}s."
+        elif isinstance(last_exception, IutCheckoutFailed):
+            fail_reason = str(last_exception)
+        return f"Failed to checkout {self.identity.to_string()}. Reason: {fail_reason}"
+
     # pylint: disable=too-many-branches
     def wait_for_and_checkout_iuts(self, minimum_amount=0, maximum_amount=100):
         """Wait for and checkout IUTs from an IUT provider.
@@ -120,7 +138,7 @@ class IutProvider:
         :rtype: list
         """
         timeout = time.time() + self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
-        fail_reason = ""
+        last_exception = None
         prepared_iuts = []
         while time.time() < timeout:
             time.sleep(5)
@@ -155,17 +173,18 @@ class IutProvider:
                         f"Preparation of {self.identity.to_string()} failed"
                     )
                 break
-            except NoIutFound:
+            except NoIutFound as not_found:
                 self.logger.critical(
                     "%r does not exist in the IUT provider!", self.identity.to_string()
                 )
                 prepared_iuts = []
+                last_exception = not_found
                 break
-            except IutNotAvailable:
+            except IutNotAvailable as not_available:
                 self.logger.warning("IUT %r is not available yet.", self.identity)
+                last_exception = not_available
                 continue
             except IutCheckoutFailed as checkout_failed:
-                fail_reason = str(checkout_failed)
                 self.logger.critical(
                     "Checkout of %r failed with reason %r!",
                     self.identity.to_string(),
@@ -173,6 +192,7 @@ class IutProvider:
                 )
                 self.checkin_all()
                 prepared_iuts = []
+                last_exception = checkout_failed
                 break
         else:
             self.logger.error(
@@ -182,8 +202,5 @@ class IutProvider:
             )
             prepared_iuts = []
         if len(prepared_iuts) < minimum_amount:
-            message = (
-                f"Failed to checkout {self.identity.to_string()}. Reason: {fail_reason}"
-            )
-            raise IutNotAvailable(message)
+            raise IutNotAvailable(self._fail_message(last_exception))
         return prepared_iuts
