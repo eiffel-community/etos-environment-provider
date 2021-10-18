@@ -39,6 +39,8 @@ class Instructions(DataStructure):  # pylint:disable=too-few-public-methods
             f"{instructions['environment']['ETOS_ENVIRONMENT_PROVIDER']}"
             f"/sub_suite?id={instructions['identifier']}"
         )
+        if instructions["environment"].get("ETR_VERSION") is None:
+            instructions["environment"]["ETR_VERSION"] = os.getenv("ETR_VERSION")
         self.add_feature_flags(instructions)
         return None, instructions
 
