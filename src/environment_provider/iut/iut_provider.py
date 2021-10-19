@@ -117,7 +117,7 @@ class IutProvider:
         timeout = self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
         fail_reason = "Unknown"
         if isinstance(last_exception, NoIutFound):
-            fail_reason = f"IUT not found in IUT provider '{self.id}'"
+            fail_reason = f"IUT not found using IUT provider '{self.id}'"
         elif isinstance(last_exception, IutNotAvailable):
             fail_reason = f"No IUT became available within {timeout}s."
         elif isinstance(last_exception, IutCheckoutFailed):
