@@ -8,9 +8,8 @@ FROM python:3.9.0-slim-buster
 
 COPY --from=build /src/dist/*.whl /tmp
 # hadolint ignore=DL3013
-RUN pip install --no-cache-dir /tmp/*.whl
+RUN pip install --no-cache-dir /tmp/*.whl && groupadd -r etos && useradd -r -s /bin/false -g etos etos
 
-RUN groupadd -r etos && useradd -r -s /bin/false -g etos etos
 USER etos
 EXPOSE 8080
 
