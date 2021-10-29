@@ -48,6 +48,9 @@ from environment_provider.backend.configure import (
     get_iut_provider_id,
     get_log_area_provider_id,
 )
+from environment_provider.backend.subsuite import (
+    sub_suite as get_sub_suite,
+)
 from environment_provider.backend.common import get_suite_id
 
 
@@ -255,8 +258,7 @@ class SubSuite:  # pylint:disable=too-few-public-methods
         """
         self.database = database
 
-    @staticmethod
-    def on_get(request, response):
+    def on_get(self, request, response):
         """Get a generated sub suite from environment provider.
 
         :param request: Falcon request object.
@@ -264,21 +266,14 @@ class SubSuite:  # pylint:disable=too-few-public-methods
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        sub_suite_id = request.get_param("id")
-        if sub_suite_id is None:
-            raise falcon.HTTPBadRequest(
-                "Missing parameter", "'id' is a required parameter."
-            )
-        database = Database()
-        sub_suite = database.read(sub_suite_id)
-        if sub_suite:
-            response.status = falcon.HTTP_200
-            response.media = json.loads(sub_suite)
-        else:
+        suite = get_sub_suite(self.database(), get_suite_id(request))
+        if suite is None:
             raise falcon.HTTPNotFound(
                 title="Sub suite not found.",
-                description=f"Could not find sub suite with ID {sub_suite_id}",
+                description=f"Could not find sub suite with ID {get_suite_id(request)}",
             )
+        response.status = falcon.HTTP_200
+        response.media = suite
 
 
 FALCON_APP = falcon.API(middleware=[RequireJSON(), JSONTranslator()])
