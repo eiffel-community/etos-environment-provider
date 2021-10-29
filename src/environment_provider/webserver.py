@@ -34,6 +34,14 @@ from environment_provider.execution_space.execution_space_provider import (
     ExecutionSpaceProvider,
 )
 from environment_provider.execution_space.execution_space import ExecutionSpace
+
+# TODO: These names shall be temporary and be fixed as all endpoints go over to using these
+# backend helpers.
+from environment_provider.backend.subsuite import (
+    sub_suite as get_sub_suite,
+    suite_id as get_suite_id,
+)
+
 from .environment_provider import get_environment
 
 
@@ -416,8 +424,7 @@ class SubSuite:  # pylint:disable=too-few-public-methods
         """
         self.database = database
 
-    @staticmethod
-    def on_get(request, response):
+    def on_get(self, request, response):
         """Get a generated sub suite from environment provider.
 
         :param request: Falcon request object.
@@ -425,21 +432,14 @@ class SubSuite:  # pylint:disable=too-few-public-methods
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        sub_suite_id = request.get_param("id")
-        if sub_suite_id is None:
-            raise falcon.HTTPBadRequest(
-                "Missing parameter", "'id' is a required parameter."
-            )
-        database = Database()
-        sub_suite = database.read(sub_suite_id)
-        if sub_suite:
-            response.status = falcon.HTTP_200
-            response.media = json.loads(sub_suite)
-        else:
+        suite = get_sub_suite(self.database(), get_suite_id(request))
+        if suite is None:
             raise falcon.HTTPNotFound(
                 title="Sub suite not found.",
-                description=f"Could not find sub suite with ID {sub_suite_id}",
+                description=f"Could not find sub suite with ID {get_suite_id(request)}",
             )
+        response.status = falcon.HTTP_200
+        response.media = suite
 
 
 FALCON_APP = falcon.API(middleware=[RequireJSON(), JSONTranslator()])
