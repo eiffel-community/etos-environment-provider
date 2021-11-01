@@ -19,7 +19,6 @@ import json
 import logging
 from collections import OrderedDict
 import jsonschema
-from etos_lib.lib.database import Database
 from environment_provider import BASE
 from environment_provider.execution_space.execution_space_provider import (
     ExecutionSpaceProvider,
@@ -33,18 +32,20 @@ class ProviderRegistry:
 
     logger = logging.getLogger("Registry")
 
-    def __init__(self, etos, jsontas):
+    def __init__(self, etos, jsontas, database):
         """Initialize with ETOS library, JsonTas and ETOS database.
 
         :param etos: ETOS library instance.
         :type etos: :obj:`etos_lib.etos.Etos`
         :param jsontas: JSONTas instance used to evaluate JSONTas structures.
         :type jsontas: :obj:`jsontas.jsontas.JsonTas`
+        :param database: Database class to use.
+        :type database: class
         """
         self.etos = etos
         self.jsontas = jsontas
         self.etos.config.set("PROVIDERS", [])
-        self.database = Database()
+        self.database = database
 
     def is_configured(self, suite_id):
         """Check that there is a configuration for the given suite ID.
