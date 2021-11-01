@@ -51,15 +51,17 @@ class TestExternalIUT(unittest.TestCase):
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         jsontas = JsonTas()
-        jsontas.dataset = {
-            "identity": PackageURL.from_string("pkg:testing/etos"),
-            "artifact_id": "artifactid",
-            "artifact_created": "artifactcreated",
-            "artifact_published": "artifactpublished",
-            "tercc": "tercc",
-            "dataset": {},
-            "context": "context",
-        }
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+            }
+        )
         expected_start_id = "123"
 
         with FakeServer("ok", {"id": expected_start_id}) as server:
@@ -86,15 +88,17 @@ class TestExternalIUT(unittest.TestCase):
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         jsontas = JsonTas()
-        jsontas.dataset = {
-            "identity": PackageURL.from_string("pkg:testing/etos"),
-            "artifact_id": "artifactid",
-            "artifact_created": "artifactcreated",
-            "artifact_published": "artifactpublished",
-            "tercc": "tercc",
-            "dataset": {},
-            "context": "context",
-        }
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+            }
+        )
         expected_start_id = "123"
 
         with FakeServer(
@@ -127,15 +131,17 @@ class TestExternalIUT(unittest.TestCase):
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         jsontas = JsonTas()
-        jsontas.dataset = {
-            "identity": PackageURL.from_string("pkg:testing/etos"),
-            "artifact_id": "artifactid",
-            "artifact_created": "artifactcreated",
-            "artifact_published": "artifactpublished",
-            "tercc": "tercc",
-            "dataset": {},
-            "context": "context",
-        }
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+            }
+        )
         os.environ["ETOS_DEFAULT_HTTP_TIMEOUT"] = "1"
 
         with FakeServer("bad_request", {}) as server:
@@ -167,15 +173,17 @@ class TestExternalIUT(unittest.TestCase):
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
         jsontas = JsonTas()
-        jsontas.dataset = {
-            "identity": PackageURL.from_string("pkg:testing/etos"),
-            "artifact_id": "artifactid",
-            "artifact_created": "artifactcreated",
-            "artifact_published": "artifactpublished",
-            "tercc": "tercc",
-            "dataset": {},
-            "context": "context",
-        }
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+            }
+        )
         iut = Iut(test_iut=1)
 
         with FakeServer("no_content", {}) as server:
@@ -203,16 +211,18 @@ class TestExternalIUT(unittest.TestCase):
         etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
         jsontas = JsonTas()
         iuts = [Iut(test_iut=1), Iut(test_iut=2)]
-        jsontas.dataset = {
-            "identity": PackageURL.from_string("pkg:testing/etos"),
-            "artifact_id": "artifactid",
-            "artifact_created": "artifactcreated",
-            "artifact_published": "artifactpublished",
-            "tercc": "tercc",
-            "dataset": {},
-            "context": "context",
-            "iuts": iuts,
-        }
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+                "iuts": iuts,
+            }
+        )
         dict_iuts = [iut.as_dict for iut in iuts]
 
         with FakeServer("no_content", {}) as server:
@@ -239,15 +249,17 @@ class TestExternalIUT(unittest.TestCase):
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
         jsontas = JsonTas()
-        jsontas.dataset = {
-            "identity": PackageURL.from_string("pkg:testing/etos"),
-            "artifact_id": "artifactid",
-            "artifact_created": "artifactcreated",
-            "artifact_published": "artifactpublished",
-            "tercc": "tercc",
-            "dataset": {},
-            "context": "context",
-        }
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+            }
+        )
         iut = Iut(test_iut=1)
 
         with FakeServer("bad_request", {"error": "no"}) as server:
@@ -275,15 +287,17 @@ class TestExternalIUT(unittest.TestCase):
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
         jsontas = JsonTas()
-        jsontas.dataset = {
-            "identity": PackageURL.from_string("pkg:testing/etos"),
-            "artifact_id": "artifactid",
-            "artifact_created": "artifactcreated",
-            "artifact_published": "artifactpublished",
-            "tercc": "tercc",
-            "dataset": {},
-            "context": "context",
-        }
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+            }
+        )
         iut = Iut(test_iut=1)
         with FakeServer("bad_request", {}) as server:
             ruleset = {
@@ -313,15 +327,17 @@ class TestExternalIUT(unittest.TestCase):
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
         jsontas = JsonTas()
-        jsontas.dataset = {
-            "identity": PackageURL.from_string("pkg:testing/etos"),
-            "artifact_id": "artifactid",
-            "artifact_created": "artifactcreated",
-            "artifact_published": "artifactpublished",
-            "tercc": "tercc",
-            "dataset": {},
-            "context": "context",
-        }
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+            }
+        )
         test_id = "123"
         with FakeServer("ok", {"status": "DONE", "test_id": test_id}) as server:
             ruleset = {"id": "test_provider_status", "status": {"host": server.host}}
@@ -348,15 +364,17 @@ class TestExternalIUT(unittest.TestCase):
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         etos.config.set("WAIT_FOR_IUT_TIMEOUT", 10)
         jsontas = JsonTas()
-        jsontas.dataset = {
-            "identity": PackageURL.from_string("pkg:testing/etos"),
-            "artifact_id": "artifactid",
-            "artifact_created": "artifactcreated",
-            "artifact_published": "artifactpublished",
-            "tercc": "tercc",
-            "dataset": {},
-            "context": "context",
-        }
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+            }
+        )
         responses = [{"status": "PENDING"}, {"status": "PENDING"}, {"status": "DONE"}]
         with FakeServer("ok", responses.copy()) as server:
             ruleset = {
@@ -384,15 +402,17 @@ class TestExternalIUT(unittest.TestCase):
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
         jsontas = JsonTas()
-        jsontas.dataset = {
-            "identity": PackageURL.from_string("pkg:testing/etos"),
-            "artifact_id": "artifactid",
-            "artifact_created": "artifactcreated",
-            "artifact_published": "artifactpublished",
-            "tercc": "tercc",
-            "dataset": {},
-            "context": "context",
-        }
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+            }
+        )
         description = "something failed!"
         with FakeServer(
             "ok", {"status": "FAILED", "description": description}
@@ -426,15 +446,17 @@ class TestExternalIUT(unittest.TestCase):
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
         jsontas = JsonTas()
-        jsontas.dataset = {
-            "identity": PackageURL.from_string("pkg:testing/etos"),
-            "artifact_id": "artifactid",
-            "artifact_created": "artifactcreated",
-            "artifact_published": "artifactpublished",
-            "tercc": "tercc",
-            "dataset": {},
-            "context": "context",
-        }
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+            }
+        )
         self.logger.info("STEP: For status [400, 404]:")
         for status, exception in (
             ("bad_request", RuntimeError),
@@ -470,15 +492,17 @@ class TestExternalIUT(unittest.TestCase):
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
         jsontas = JsonTas()
-        jsontas.dataset = {
-            "identity": PackageURL.from_string("pkg:testing/etos"),
-            "artifact_id": "artifactid",
-            "artifact_created": "artifactcreated",
-            "artifact_published": "artifactpublished",
-            "tercc": "tercc",
-            "dataset": {},
-            "context": "context",
-        }
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+            }
+        )
         with FakeServer("internal_server_error", {}) as server:
             ruleset = {
                 "id": "test_provider_status_timeout",
