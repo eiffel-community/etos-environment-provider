@@ -80,9 +80,9 @@ class FakeDatabase(Database):
 
     def __init__(self):
         """Initialize fake reader and writer."""
-        self.db_dict = {}
-        self.__writer = FakeWriter(self.db_dict)
-        self.__reader = FakeReader(self.db_dict)
+        self.__db_dict = {}
+        self.__writer = FakeWriter(self.__db_dict)
+        self.__reader = FakeReader(self.__db_dict)
         super().__init__(self)
 
     def __call__(self):
