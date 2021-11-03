@@ -34,6 +34,13 @@ from environment_provider.execution_space.execution_space_provider import (
     ExecutionSpaceProvider,
 )
 from environment_provider.execution_space.execution_space import ExecutionSpace
+from environment_provider.backend.register import (
+    get_iut_provider,
+    get_execution_space_provider,
+    get_log_area_provider,
+    register,
+)
+
 from .environment_provider import get_environment
 
 
@@ -331,10 +338,8 @@ class Configure:
         }
 
 
-class Register:
+class Register:  # pylint:disable=too-few-public-methods
     """Register one or several new providers to the environment provider."""
-
-    request = None
 
     def __init__(self, database):
         """Init with a db class.
@@ -344,36 +349,6 @@ class Register:
         """
         self.database = database
 
-    @property
-    def iut_provider(self):
-        """IUT provider JSON from media parameters."""
-        return self.to_json(self.request.media.get("iut_provider"))
-
-    @property
-    def execution_space_provider(self):
-        """Get execution space provider JSON from media parameters."""
-        return self.to_json(self.request.media.get("execution_space_provider"))
-
-    @property
-    def log_area_provider(self):
-        """Get log area provider JSON from media parameters."""
-        return self.to_json(self.request.media.get("log_area_provider"))
-
-    @staticmethod
-    def to_json(item):
-        """Convert item to JSON if it is not already.
-
-        :param item: Item to convert.
-        :type item: any
-        :return: Converted item or None
-        :rtype: dict or None
-        """
-        if item:
-            if isinstance(item, dict):
-                return item
-            return json.loads(item)
-        return item
-
     def on_post(self, request, response):
         """Register a new provider.
 
@@ -382,26 +357,23 @@ class Register:
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        self.request = request
-        if not any(
-            [self.iut_provider, self.log_area_provider, self.execution_space_provider]
-        ):
-            raise falcon.HTTPBadRequest(
-                "Missing parameters",
-                "At least one of 'iut_provider', 'log_area_provider' "
-                "& 'execution_space_provider' is a required parameter.",
-            )
         etos = ETOS(
             "ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider"
         )
         jsontas = JsonTas()
         registry = ProviderRegistry(etos, jsontas, self.database())
-        if self.iut_provider:
-            registry.register_iut_provider(self.iut_provider)
-        if self.execution_space_provider:
-            registry.register_execution_space_provider(self.execution_space_provider)
-        if self.log_area_provider:
-            registry.register_log_area_provider(self.log_area_provider)
+        registered = register(
+            registry,
+            iut_provider=get_iut_provider(request),
+            log_area_provider=get_log_area_provider(request),
+            execution_space_provider=get_execution_space_provider(request),
+        )
+        if registered is False:
+            raise falcon.HTTPBadRequest(
+                "Missing parameters",
+                "At least one of 'iut_provider', 'log_area_provider' "
+                "& 'execution_space_provider' is a required parameter.",
+            )
         response.status = falcon.HTTP_204
 
 

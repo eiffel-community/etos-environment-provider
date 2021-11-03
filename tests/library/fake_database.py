@@ -37,6 +37,13 @@ class FakeWriter:
         self._writer_dict[key] = value
         return self._writer_dict.get(key)
 
+    def hset(self, key, _id, value):
+        """Set hash into database."""
+        self.set(key + _id, value)
+
+    def hdel(self, _key, _value):
+        """Delete hash from database."""
+
     def expire(self, _key, _value):
         """Set expiration on database keys."""
 
@@ -57,6 +64,10 @@ class FakeReader:
         :rtype: any
         """
         return self._reader_dict.get(key)
+
+    def hget(self, key, _id):
+        """Get hash from database."""
+        return self._reader_dict.get(key + _id)
 
 
 class FakeDatabase(Database):

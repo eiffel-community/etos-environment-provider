@@ -35,6 +35,11 @@ class FakeRequest:  # pylint:disable=too-few-public-methods
         """
         return self.fake_params.get(name)
 
+    @property
+    def media(self):
+        """Media is used for POST requests."""
+        return self.fake_params
+
 
 class FakeResponse:  # pylint:disable=too-few-public-methods
     """Fake response structure."""
