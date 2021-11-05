@@ -45,6 +45,8 @@ class FakeResponse:  # pylint:disable=too-few-public-methods
     """Fake response structure."""
 
     fake_responses = None
+    media = {}
+    status = 0
 
     def __init__(self):
         """Init a fake response storage dict."""

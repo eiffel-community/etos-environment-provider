@@ -16,6 +16,7 @@
 """ETOS Environment Provider webserver module."""
 import os
 import traceback
+import logging
 import json
 import falcon
 
@@ -41,6 +42,15 @@ from environment_provider.backend.register import (
     register,
 )
 
+from environment_provider.backend.configure import (
+    configure,
+    get_configuration,
+    get_dataset,
+    get_execution_space_provider_id,
+    get_iut_provider_id,
+    get_suite_id,
+    get_log_area_provider_id,
+)
 from .environment_provider import get_environment
 
 
@@ -191,8 +201,7 @@ class Configure:
     the environment provider is configured to handle it.
     """
 
-    request = None
-    registry = None
+    logger = logging.getLogger(__name__)
 
     def __init__(self, database):
         """Init with a db class.
@@ -202,59 +211,6 @@ class Configure:
         """
         self.database = database
 
-    @property
-    def suite_id(self):
-        """Suite ID from media parameters."""
-        suite_id = self.request.media.get("suite_id")
-        if suite_id is None:
-            raise falcon.HTTPBadRequest(
-                "Missing parameters", "'suite_id' is a required parameter."
-            )
-        return suite_id
-
-    @property
-    def iut_provider(self):
-        """Get IUT provider from media parameters."""
-        iut_provider = self.request.media.get("iut_provider")
-        if iut_provider is None:
-            raise falcon.HTTPBadRequest(
-                "Missing parameters", "'iut_provider' is a required parameter."
-            )
-        return self.registry.get_iut_provider_by_id(iut_provider)
-
-    @property
-    def execution_space_provider(self):
-        """Get execution space provider from media parameters."""
-        execution_space_provider = self.request.media.get("execution_space_provider")
-        if execution_space_provider is None:
-            raise falcon.HTTPBadRequest(
-                "Missing parameters",
-                "'execution_space_provider' is a required parameter.",
-            )
-        return self.registry.get_execution_space_provider_by_id(
-            execution_space_provider
-        )
-
-    @property
-    def log_area_provider(self):
-        """Get log area provider from media parameters."""
-        log_area_provider = self.request.media.get("log_area_provider")
-        if log_area_provider is None:
-            raise falcon.HTTPBadRequest(
-                "Missing parameters", "'log_area_provider' is a required parameter."
-            )
-        return self.registry.get_log_area_provider_by_id(log_area_provider)
-
-    @property
-    def dataset(self):
-        """Get dataset from media parameters."""
-        dataset = self.request.media.get("dataset")
-        if dataset is None:
-            raise falcon.HTTPBadRequest(
-                "Missing parameters", "'dataset' is a required parameter."
-            )
-        return dataset
-
     def on_post(self, request, response):
         """Verify that all parameters are available and configure the provider registry.
 
@@ -263,43 +219,26 @@ class Configure:
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        self.request = request
         etos = ETOS(
             "ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider"
         )
         jsontas = JsonTas()
-        self.registry = ProviderRegistry(etos, jsontas, self.database())
-        try:
-            assert self.suite_id is not None, "Invalid suite ID"
-            FORMAT_CONFIG.identifier = self.suite_id
-            iut_provider = self.iut_provider
-            log_area_provider = self.log_area_provider
-            execution_space_provider = self.execution_space_provider
-            assert (
-                iut_provider is not None
-            ), f"No such IUT provider {self.request.media.get('iut_provider')}"
-            assert execution_space_provider is not None, (
-                "No such execution space provider"
-                f"{self.request.media.get('execution_space_provider')}"
-            )
-            assert (
-                log_area_provider is not None
-            ), f"No such log area provider {self.request.media.get('log_area_provider')}"
-            assert self.dataset is not None, "Invalid dataset."
-            response.media = {
-                "IUTProvider": iut_provider,
-                "ExecutionSpaceProvider": execution_space_provider,
-                "LogAreaProvider": log_area_provider,
-            }
-            self.registry.configure_environment_provider_for_suite(
-                self.suite_id,
-                iut_provider,
-                log_area_provider,
-                execution_space_provider,
-                self.dataset,
-            )
-        except AssertionError as exception:
-            raise falcon.HTTPBadRequest("Invalid provider", str(exception))
+        registry = ProviderRegistry(etos, jsontas, self.database())
+        suite_id = get_suite_id(request)
+        FORMAT_CONFIG.identifier = suite_id
+
+        success, message = configure(
+            registry,
+            get_iut_provider_id(request),
+            get_execution_space_provider_id(request),
+            get_log_area_provider_id(request),
+            get_dataset(request),
+            get_suite_id(request),
+        )
+        if not success:
+            self.logger.error(message)
+            raise falcon.HTTPBadRequest("Bad request", message)
+        response.status = falcon.HTTP_200
 
     def on_get(self, request, response):
         """Get an already configured environment based on suite ID.
@@ -311,31 +250,20 @@ class Configure:
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        suite_id = request.get_param("suite_id")
-        FORMAT_CONFIG.identifier = suite_id
         etos = ETOS(
             "ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider"
         )
         jsontas = JsonTas()
         registry = ProviderRegistry(etos, jsontas, self.database())
+
+        suite_id = get_suite_id(request)
         if suite_id is None:
             raise falcon.HTTPBadRequest(
                 "Missing parameters", "'suite_id' is a required parameter."
             )
+        FORMAT_CONFIG.identifier = suite_id
         response.status = falcon.HTTP_200
-        iut_provider = registry.iut_provider(suite_id)
-        log_area_provider = registry.log_area_provider(suite_id)
-        execution_space_provider = registry.execution_space_provider(suite_id)
-        response.media = {
-            "iut_provider": iut_provider.ruleset if iut_provider else None,
-            "log_area_provider": log_area_provider.ruleset
-            if log_area_provider
-            else None,
-            "execution_space_provider": execution_space_provider.ruleset
-            if execution_space_provider
-            else None,
-            "dataset": registry.dataset(suite_id),
-        }
+        response.media = get_configuration(registry, suite_id)
 
 
 class Register:  # pylint:disable=too-few-public-methods
