@@ -27,12 +27,14 @@ from jsontas.jsontas import JsonTas
 from environment_provider.middleware import RequireJSON, JSONTranslator
 from environment_provider.lib.celery import APP
 from environment_provider.lib.registry import ProviderRegistry
-from environment_provider.iut.iut_provider import IutProvider
-from environment_provider.iut.iut import Iut
-from environment_provider.logs.log_area_provider import LogAreaProvider
-from environment_provider.logs.log_area import LogArea
-from environment_provider.execution_space.execution_space_provider import (
-    ExecutionSpaceProvider,
+
+from environment_provider.backend.environment import (
+    check_environment_status,
+    get_environment_id,
+    get_release_id,
+    get_suite_id,
+    release_environment,
+    request_environment,
 )
 from environment_provider.execution_space.execution_space import ExecutionSpace
 from environment_provider.backend.register import (
@@ -59,13 +61,16 @@ class Webserver:
 
     request = None
 
-    def __init__(self, database):
+    def __init__(self, database, celery_worker):
         """Init with a db class.
 
         :param database: database class.
         :type database: class
+        :param celery_worker: The celery app to use.
+        :type celery_worker: :obj:`celery.Celery`
         """
         self.database = database
+        self.celery_worker = celery_worker
 
     @property
     def suite_id(self):
@@ -85,69 +90,26 @@ class Webserver:
         :param task_id: Task to release.
         :type task_id: str
         """
-        try:
-            task_result = APP.AsyncResult(task_id)
-            result = {
-                "status": task_result.status,
-            }
-            response.status = falcon.HTTP_200
-            if task_result.result:
-                etos = ETOS(
-                    "ETOS Environment Provider",
-                    os.getenv("HOSTNAME"),
-                    "Environment Provider",
-                )
-                jsontas = JsonTas()
-                registry = ProviderRegistry(etos, jsontas, self.database())
-                failure = None
-                for suite in task_result.result.get("suites", []):
-                    try:
-                        iut = suite.get("iut")
-                        ruleset = registry.get_iut_provider_by_id(
-                            iut.get("provider_id")
-                        )
-                        provider = IutProvider(etos, jsontas, ruleset["iut"])
-                        provider.checkin(Iut(**iut))
-                    except Exception as exception:  # pylint:disable=broad-except
-                        failure = exception
-
-                    try:
-                        executor = suite.get("executor")
-                        ruleset = registry.get_execution_space_provider_by_id(
-                            executor.get("provider_id")
-                        )
-                        provider = ExecutionSpaceProvider(
-                            etos, jsontas, ruleset["execution_space"]
-                        )
-                        provider.checkin(ExecutionSpace(**executor))
-                    except Exception as exception:  # pylint:disable=broad-except
-                        failure = exception
-
-                    try:
-                        log_area = suite.get("log_area")
-                        ruleset = registry.get_log_area_provider_by_id(
-                            log_area.get("provider_id")
-                        )
-                        provider = LogAreaProvider(etos, jsontas, ruleset["log"])
-                        provider.checkin(LogArea(**log_area))
-                    except Exception as exception:  # pylint:disable=broad-except
-                        failure = exception
-                task_result.forget()
-                if failure:
-                    raise failure
-                response.media = {**result}
-            else:
-                response.media = {
-                    "warning": f"Nothing to release with task_id '{task_id}'",
-                    **result,
-                }
-        except Exception as exception:  # pylint:disable=broad-except
-            traceback.print_exc()
+        etos = ETOS(
+            "ETOS Environment Provider",
+            os.getenv("HOSTNAME"),
+            "Environment Provider",
+        )
+        jsontas = JsonTas()
+        registry = ProviderRegistry(etos, jsontas, self.database())
+        task_result = self.celery_worker.AsyncResult(task_id)
+        success, message = release_environment(
+            etos, jsontas, registry, task_result, task_id
+        )
+        if not success:
             response.media = {
-                "error": str(exception),
-                "details": traceback.format_exc(),
-                **result,
+                "error": "Failed to release environment",
+                "details": message,
+                "status": task_result.status if task_result else "PENDING",
             }
+            return
+        response.status = falcon.HTTP_200
+        response.media = {"status": task_result.status if task_result else "PENDING"}
 
     def on_get(self, request, response):
         """GET endpoint for environment provider API.
@@ -159,8 +121,8 @@ class Webserver:
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        task_id = request.get_param("id")
-        release = request.get_param("release")
+        task_id = get_environment_id(request)
+        release = get_release_id(request)
         if task_id is None and release is None:
             raise falcon.HTTPBadRequest(
                 "Missing parameters", "'id' or 'release' are required parameters."
@@ -168,14 +130,9 @@ class Webserver:
         if release:
             self.release(response, release)
             return
-        task_result = APP.AsyncResult(task_id)
-        result = {"status": task_result.status, "result": task_result.result}
-        if result["result"] and result["result"].get("error") is not None:
-            result["status"] = "FAILURE"
+        result = check_environment_status(self.celery_worker, task_id)
         response.status = falcon.HTTP_200
         response.media = result
-        if task_result.result:
-            task_result.get()
 
     def on_post(self, request, response):
         """POST endpoint for environment provider API.
@@ -187,11 +144,9 @@ class Webserver:
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        self.request = request
-        task = get_environment.delay(self.suite_id)
-        data = {"result": "success", "data": {"id": task.id}}
+        task_id = request_environment(get_suite_id(request), self.database())
         response.status = falcon.HTTP_200
-        response.media = data
+        response.media = {"result": "success", "data": {"id": task_id}}
 
 
 class Configure:
@@ -343,7 +298,7 @@ class SubSuite:  # pylint:disable=too-few-public-methods
 
 
 FALCON_APP = falcon.API(middleware=[RequireJSON(), JSONTranslator()])
-WEBSERVER = Webserver(Database)
+WEBSERVER = Webserver(Database, APP)
 CONFIGURE = Configure(Database)
 REGISTER = Register(Database)
 SUB_SUITE = SubSuite(Database)

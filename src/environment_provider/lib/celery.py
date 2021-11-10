@@ -20,9 +20,11 @@ from etos_lib.logging.logger import FORMAT_CONFIG
 
 
 FORMAT_CONFIG.identifier = "TaskListener"
+
 PORT = os.getenv("ETOS_DATABASE_PORT", "26379")
 HOST = os.getenv("ETOS_DATABASE_HOST", "localhost")
 PASSWORD = os.getenv("ETOS_DATABASE_PASSWORD", None)
+
 if PASSWORD:
     CELERY_BROKER_URL = f"sentinel://:{PASSWORD}@{HOST}:{PORT}"
 else:

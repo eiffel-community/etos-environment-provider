@@ -46,7 +46,7 @@ class Checkin:
             :obj:`environment_provider.execution_space.execution_space.ExecutionSpace`
         """
         # Definition does not have the 'checkin' key. Just return.
-        if not self.checkin_ruleset:
+        if self.checkin_ruleset is None:
             self.logger.info("No defined checkin rule.")
             return
 

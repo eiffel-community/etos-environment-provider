@@ -45,7 +45,7 @@ class Checkin:
         :type iut: :obj:`environment_provider.iut.iut.Iut`
         """
         # Definition does not have the 'checkin' key. Just return.
-        if not self.checkin_ruleset:
+        if self.checkin_ruleset is None:
             self.logger.info("No defined checkin rule.")
             return
 
