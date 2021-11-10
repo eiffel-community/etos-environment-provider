@@ -59,8 +59,6 @@ from .environment_provider import get_environment
 class Webserver:
     """Environment provider base endpoint."""
 
-    request = None
-
     def __init__(self, database, celery_worker):
         """Init with a db class.
 
@@ -71,16 +69,6 @@ class Webserver:
         """
         self.database = database
         self.celery_worker = celery_worker
-
-    @property
-    def suite_id(self):
-        """Suite ID from media parameters."""
-        suite_id = self.request.media.get("suite_id")
-        if suite_id is None:
-            raise falcon.HTTPBadRequest(
-                "Missing parameters", "'suite_id' is a required parameter."
-            )
-        return suite_id
 
     def release(self, response, task_id):  # pylint:disable=too-many-locals
         """Release an environment.
