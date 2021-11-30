@@ -312,7 +312,7 @@ class TestRegisterBackend(unittest.TestCase):
         """Test that the register backend can register all providers.
 
         Approval criteria:
-            - The register backend shall be able to register an all providers.
+            - The register backend shall be able to register all providers.
 
         Test steps:
             1. Register one of each provider with the register backend.
