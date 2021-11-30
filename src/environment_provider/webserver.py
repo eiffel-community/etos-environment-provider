@@ -34,14 +34,6 @@ from environment_provider.execution_space.execution_space_provider import (
     ExecutionSpaceProvider,
 )
 from environment_provider.execution_space.execution_space import ExecutionSpace
-
-# TODO: These names shall be temporary and be fixed as all endpoints go over to using these
-# backend helpers.
-from environment_provider.backend.subsuite import (
-    sub_suite as get_sub_suite,
-    suite_id as get_suite_id,
-)
-
 from .environment_provider import get_environment
 
 
@@ -49,14 +41,6 @@ class Webserver:
     """Environment provider base endpoint."""
 
     request = None
-
-    def __init__(self, database):
-        """Init with a db class.
-
-        :param database: database class.
-        :type database: class
-        """
-        self.database = database
 
     @property
     def suite_id(self):
@@ -68,7 +52,8 @@ class Webserver:
             )
         return suite_id
 
-    def release(self, response, task_id):  # pylint:disable=too-many-locals
+    @staticmethod
+    def release(response, task_id):
         """Release an environment.
 
         :param response: Response object to edit and return.
@@ -89,7 +74,7 @@ class Webserver:
                     "Environment Provider",
                 )
                 jsontas = JsonTas()
-                registry = ProviderRegistry(etos, jsontas, self.database())
+                registry = ProviderRegistry(etos, jsontas)
                 failure = None
                 for suite in task_result.result.get("suites", []):
                     try:
@@ -195,14 +180,6 @@ class Configure:
     request = None
     registry = None
 
-    def __init__(self, database):
-        """Init with a db class.
-
-        :param database: database class.
-        :type database: class
-        """
-        self.database = database
-
     @property
     def suite_id(self):
         """Suite ID from media parameters."""
@@ -269,7 +246,7 @@ class Configure:
             "ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider"
         )
         jsontas = JsonTas()
-        self.registry = ProviderRegistry(etos, jsontas, self.database())
+        self.registry = ProviderRegistry(etos, jsontas)
         try:
             assert self.suite_id is not None, "Invalid suite ID"
             FORMAT_CONFIG.identifier = self.suite_id
@@ -302,7 +279,8 @@ class Configure:
         except AssertionError as exception:
             raise falcon.HTTPBadRequest("Invalid provider", str(exception))
 
-    def on_get(self, request, response):
+    @staticmethod
+    def on_get(request, response):
         """Get an already configured environment based on suite ID.
 
         Use only to verify that the environment has been configured properly.
@@ -318,7 +296,7 @@ class Configure:
             "ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider"
         )
         jsontas = JsonTas()
-        registry = ProviderRegistry(etos, jsontas, self.database())
+        registry = ProviderRegistry(etos, jsontas)
         if suite_id is None:
             raise falcon.HTTPBadRequest(
                 "Missing parameters", "'suite_id' is a required parameter."
@@ -343,14 +321,6 @@ class Register:
     """Register one or several new providers to the environment provider."""
 
     request = None
-
-    def __init__(self, database):
-        """Init with a db class.
-
-        :param database: database class.
-        :type database: class
-        """
-        self.database = database
 
     @property
     def iut_provider(self):
@@ -403,7 +373,7 @@ class Register:
             "ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider"
         )
         jsontas = JsonTas()
-        registry = ProviderRegistry(etos, jsontas, self.database())
+        registry = ProviderRegistry(etos, jsontas)
         if self.iut_provider:
             registry.register_iut_provider(self.iut_provider)
         if self.execution_space_provider:
@@ -416,15 +386,8 @@ class Register:
 class SubSuite:  # pylint:disable=too-few-public-methods
     """Get generated sub suites from environment provider."""
 
-    def __init__(self, database):
-        """Init with a db class.
-
-        :param database: database class.
-        :type database: class
-        """
-        self.database = database
-
-    def on_get(self, request, response):
+    @staticmethod
+    def on_get(request, response):
         """Get a generated sub suite from environment provider.
 
         :param request: Falcon request object.
@@ -432,21 +395,28 @@ class SubSuite:  # pylint:disable=too-few-public-methods
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        suite = get_sub_suite(self.database(), get_suite_id(request))
-        if suite is None:
+        sub_suite_id = request.get_param("id")
+        if sub_suite_id is None:
+            raise falcon.HTTPBadRequest(
+                "Missing parameter", "'id' is a required parameter."
+            )
+        database = Database()
+        sub_suite = database.read(sub_suite_id)
+        if sub_suite:
+            response.status = falcon.HTTP_200
+            response.media = json.loads(sub_suite)
+        else:
             raise falcon.HTTPNotFound(
                 title="Sub suite not found.",
-                description=f"Could not find sub suite with ID {get_suite_id(request)}",
+                description=f"Could not find sub suite with ID {sub_suite_id}",
             )
-        response.status = falcon.HTTP_200
-        response.media = suite
 
 
 FALCON_APP = falcon.API(middleware=[RequireJSON(), JSONTranslator()])
-WEBSERVER = Webserver(Database)
-CONFIGURE = Configure(Database)
-REGISTER = Register(Database)
-SUB_SUITE = SubSuite(Database)
+WEBSERVER = Webserver()
+CONFIGURE = Configure()
+REGISTER = Register()
+SUB_SUITE = SubSuite()
 FALCON_APP.add_route("/", WEBSERVER)
 FALCON_APP.add_route("/configure", CONFIGURE)
 FALCON_APP.add_route("/register", REGISTER)
