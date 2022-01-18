@@ -185,6 +185,20 @@ class TestRegisterBackend(unittest.TestCase):
         json_dict = json_to_dict(json_string)
         self.assertDictEqual(json_dict, json.loads(json_string))
 
+    def test_json_to_dict_none(self):
+        """Test that the json to dict function returns None.
+
+        Approval criteria:
+            - The json_to_dict function shall return None if json_str is None.
+
+        Test steps:
+            1. Verify that the json_to_dict returns None when json_str is None.
+        """
+        self.logger.info(
+            "Verify that the json_to_dict returns None when json_str is None."
+        )
+        self.assertIsNone(json_to_dict(None))
+
     def test_json_to_dict_already_dict(self):
         """Test that the json to dict function does not do anything if input is already a dict.
 
