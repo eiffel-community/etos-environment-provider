@@ -111,8 +111,5 @@ class TestRegister(unittest.TestCase):
         fake_response = FakeResponse()
         self.logger.info("STEP: Send a register request with no providers.")
         with self.assertRaises(falcon.HTTPBadRequest):
-            Register(fake_database).on_post(fake_request, fake_response)
             self.logger.info("STEP: Verify that a 400 Bad Request is returned.")
-            self.assertEqual(
-                fake_response.fake_responses.get("status"), falcon.HTTP_400
-            )
+            Register(fake_database).on_post(fake_request, fake_response)
