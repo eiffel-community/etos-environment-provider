@@ -188,7 +188,7 @@ class ProviderRegistry:
         data = self.validate(ruleset, schema)
         self.logger.info("Registering %r", data)
         self.database.writer.hdel(
-            "EnvironmentProvider:ExecutionSpaceProvider", data["execution_space"]["id"]
+            "EnvironmentProvider:ExecutionSpaceProviders", data["execution_space"]["id"]
         )
         self.database.writer.hset(
             "EnvironmentProvider:ExecutionSpaceProviders",
