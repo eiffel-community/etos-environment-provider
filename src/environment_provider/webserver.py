@@ -178,7 +178,7 @@ class Webserver:
         :type response: :obj:`falcon.response`
         """
         self.request = request
-        task = get_environment.delay(self.suite_id, self.database())
+        task = get_environment.delay(self.suite_id)
         data = {"result": "success", "data": {"id": task.id}}
         response.status = falcon.HTTP_200
         response.media = data

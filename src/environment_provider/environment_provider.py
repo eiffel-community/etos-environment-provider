@@ -22,6 +22,7 @@ import json
 from threading import Lock
 from copy import deepcopy
 from etos_lib.etos import ETOS
+from etos_lib.lib.database import Database
 from etos_lib.logging.logger import FORMAT_CONFIG
 from jsontas.jsontas import JsonTas
 from environment_provider.splitter.split import Splitter
@@ -55,13 +56,11 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     task_track_started = True
     lock = Lock()
 
-    def __init__(self, suite_id, database):
+    def __init__(self, suite_id):
         """Initialize ETOS, dataset, provider registry and splitter.
 
         :param suite_id: Suite ID to get an environment for
         :type suite_id: str
-        :param database: Database class to use.
-        :type database: class
         """
         self.suite_id = suite_id
         FORMAT_CONFIG.identifier = suite_id
@@ -84,7 +83,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.dataset.add("json_dumps", JsonDumps)
         self.dataset.add("uuid_generate", UuidGenerate)
         self.dataset.add("join", Join)
-        self.registry = ProviderRegistry(self.etos, self.jsontas, database)
+        self.registry = ProviderRegistry(self.etos, self.jsontas, Database())
         self.splitter = Splitter(self.etos, {})
 
     def configure(self, suite_id):
@@ -393,15 +392,13 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
 
 
 @APP.task(name="EnvironmentProvider")
-def get_environment(suite_id, database):
+def get_environment(suite_id):
     """Get an environment for ETOS test executions.
 
     :param suite_id: Suite ID to get an environment for
     :type suite_id: str
-    :param database: Database class to use.
-    :type database: class
     :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
     :rtype: dict
     """
-    environment_provider = EnvironmentProvider(suite_id, database)
+    environment_provider = EnvironmentProvider(suite_id)
     return environment_provider.run()
