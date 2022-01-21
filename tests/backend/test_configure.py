@@ -222,6 +222,28 @@ class TestConfigureBackend(unittest.TestCase):
         self.logger.info("STEP: Verify that the backend returns the correct suite id.")
         self.assertEqual(test_suite_id, response_suite_id)
 
+    def test_suite_id_media_is_none(self):
+        """Test that the configure backend returns the result of get_param if media is not set.
+
+        Approval criteria:
+            - The configure backend shall return the value of get_param if media is None.
+
+        Test steps:
+            1. Get suite id from request via the configure backend without media.
+            2. Verify that the backend returns the suite id.
+        """
+        request = FakeRequest()
+        request.force_media_none = True
+        test_suite_id = "b58415d4-2f39-4ab0-8763-7277e18f9606"
+        request.fake_params["suite_id"] = test_suite_id
+        self.logger.info(
+            "STEP: Get suite id from request via the configure backend without media."
+        )
+        response_suite_id = get_suite_id(request)
+
+        self.logger.info("STEP: Verify that the backend returns the suite id.")
+        self.assertEqual(test_suite_id, response_suite_id)
+
     def test_suite_id_none(self):
         """Test that the configure backend returns None if suite id is not set.
 

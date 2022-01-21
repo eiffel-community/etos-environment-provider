@@ -73,6 +73,8 @@ def get_suite_id(request):
     :return: An IUT provider ID.
     :rtype: str
     """
+    if request.media is None:
+        return request.get_param("suite_id")
     return request.media.get("suite_id")
 
 
