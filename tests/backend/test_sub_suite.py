@@ -20,7 +20,7 @@ import json
 
 import falcon
 
-from environment_provider.backend.subsuite import suite_id, sub_suite
+from environment_provider.backend.subsuite import get_id, get_sub_suite
 from tests.library.fake_request import FakeRequest
 from tests.library.fake_database import FakeDatabase
 
@@ -44,7 +44,7 @@ class TestSubSuiteBackend(unittest.TestCase):
         test_id = "thisismytestid"
         request.fake_params["id"] = test_id
         self.logger.info("STEP: Get Suite ID from request via the suite id function.")
-        response_id = suite_id(request)
+        response_id = get_id(request)
         self.logger.info(
             "STEP: Verify that the suite id function return the correct ID."
         )
@@ -67,7 +67,7 @@ class TestSubSuiteBackend(unittest.TestCase):
             "STEP: Verify that the suite id function raises falcon.HTTPBadRequest."
         )
         with self.assertRaises(falcon.HTTPBadRequest):
-            suite_id(request)
+            get_id(request)
 
     def test_sub_suite(self):
         """Test that the subsuite backend can return the sub suite registered in database.
@@ -85,7 +85,7 @@ class TestSubSuiteBackend(unittest.TestCase):
         test_suite = {"testing": "subsuites"}
         database.write("mysuite", json.dumps(test_suite))
         self.logger.info("STEP: Get the sub suite from the subsuite backend.")
-        response_suite = sub_suite(database, "mysuite")
+        response_suite = get_sub_suite(database, "mysuite")
         self.logger.info(
             "STEP: Verify that the sub suite is the one stored in the database."
         )
@@ -102,6 +102,6 @@ class TestSubSuiteBackend(unittest.TestCase):
             2. Verify that the sub suite returned is None.
         """
         self.logger.info("STEP: Get the sub suite from the subsuite backend.")
-        suite = sub_suite(FakeDatabase(), 1)
+        suite = get_sub_suite(FakeDatabase(), 1)
         self.logger.info("STEP: Verify that the sub suite returned is None.")
         self.assertIsNone(suite)

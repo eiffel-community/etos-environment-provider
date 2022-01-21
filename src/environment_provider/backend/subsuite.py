@@ -19,7 +19,7 @@ import json
 import falcon
 
 
-def sub_suite(database, sub_suite_id):
+def get_sub_suite(database, sub_suite_id):
     """Sub suite gets a sub suite by suite_id from database.
 
     :param database: The database to get sub suites from.
@@ -35,8 +35,8 @@ def sub_suite(database, sub_suite_id):
     return json.loads(suite)
 
 
-def suite_id(request):
-    """Suite ID returns the 'id' parameter from a request.
+def get_id(request):
+    """ID returns the 'id' parameter from a request.
 
     :raises: falcon.HTTPBadRequest if ID is missing.
 

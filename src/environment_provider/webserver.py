@@ -16,7 +16,6 @@
 """ETOS Environment Provider webserver module."""
 import os
 import logging
-import json
 import falcon
 
 from etos_lib.etos import ETOS
@@ -48,9 +47,7 @@ from environment_provider.backend.configure import (
     get_iut_provider_id,
     get_log_area_provider_id,
 )
-from environment_provider.backend.subsuite import (
-    sub_suite as get_sub_suite,
-)
+from environment_provider.backend.subsuite import get_sub_suite, get_id
 from environment_provider.backend.common import get_suite_id
 
 
@@ -266,7 +263,7 @@ class SubSuite:  # pylint:disable=too-few-public-methods
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        suite = get_sub_suite(self.database(), get_suite_id(request))
+        suite = get_sub_suite(self.database(), get_id(request))
         if suite is None:
             raise falcon.HTTPNotFound(
                 title="Sub suite not found.",
