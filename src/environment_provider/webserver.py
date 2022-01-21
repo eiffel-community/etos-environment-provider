@@ -15,7 +15,6 @@
 # limitations under the License.
 """ETOS Environment Provider webserver module."""
 import os
-import traceback
 import logging
 import json
 import falcon
@@ -32,28 +31,24 @@ from environment_provider.backend.environment import (
     check_environment_status,
     get_environment_id,
     get_release_id,
-    get_suite_id,
     release_environment,
     request_environment,
 )
-from environment_provider.execution_space.execution_space import ExecutionSpace
 from environment_provider.backend.register import (
     get_iut_provider,
     get_execution_space_provider,
     get_log_area_provider,
     register,
 )
-
 from environment_provider.backend.configure import (
     configure,
     get_configuration,
     get_dataset,
     get_execution_space_provider_id,
     get_iut_provider_id,
-    get_suite_id,
     get_log_area_provider_id,
 )
-from .environment_provider import get_environment
+from environment_provider.backend.common import get_suite_id
 
 
 class Webserver:
@@ -122,7 +117,8 @@ class Webserver:
         response.status = falcon.HTTP_200
         response.media = result
 
-    def on_post(self, request, response):
+    @staticmethod
+    def on_post(request, response):
         """POST endpoint for environment provider API.
 
         Create a new environment and return it.
@@ -132,7 +128,7 @@ class Webserver:
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        task_id = request_environment(get_suite_id(request), self.database())
+        task_id = request_environment(get_suite_id(request))
         response.status = falcon.HTTP_200
         response.media = {"result": "success", "data": {"id": task_id}}
 

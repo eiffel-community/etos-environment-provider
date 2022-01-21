@@ -27,17 +27,6 @@ from environment_provider.execution_space.execution_space import ExecutionSpace
 from environment_provider.environment_provider import get_environment
 
 
-def get_suite_id(request):
-    """Get suite ID from the request.
-
-    :param request: The falcon request object.
-    :type request: :obj:`falcon.request`
-    :return: The suite ID which an environment was requested for.
-    :rtype: str
-    """
-    return request.media.get("suite_id")
-
-
 def get_environment_id(request):
     """Get the environment ID from request.
 
@@ -154,21 +143,19 @@ def check_environment_status(celery_worker, environment_id):
     task_result = celery_worker.AsyncResult(environment_id)
     result = task_result.result
     status = task_result.status
-    if result.get("error") is not None:
+    if result and result.get("error") is not None:
         status = "FAILURE"
     if result:
         task_result.get()
     return {"status": status, "result": result}
 
 
-def request_environment(suite_id, database):
+def request_environment(suite_id):
     """Request an environment for a test suite ID.
 
     :param suite_id: Suite ID to request an environment for.
     :type suite_id: str
-    :param database: Database to use for get_environment.
-    :type database: class
     :return: The environment ID for the request.
     :rtype: str
     """
-    return get_environment.delay(suite_id, database).id
+    return get_environment.delay(suite_id).id

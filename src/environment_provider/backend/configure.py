@@ -65,19 +65,6 @@ def get_dataset(request):
     return dataset
 
 
-def get_suite_id(request):
-    """Get a suite ID from the request.
-
-    :param request: The falcon request object.
-    :type request: :obj:`falcon.request`
-    :return: An IUT provider ID.
-    :rtype: str
-    """
-    if request.media is None:
-        return request.get_param("suite_id")
-    return request.media.get("suite_id")
-
-
 # pylint:disable=too-many-arguments
 def configure(
     provider_registry,

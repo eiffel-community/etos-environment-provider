@@ -27,10 +27,10 @@ from environment_provider.backend.environment import (
     check_environment_status,
     get_environment_id,
     get_release_id,
-    get_suite_id,
     release_environment,
     request_environment,
 )
+from environment_provider.backend.common import get_suite_id
 from environment_provider.lib.registry import ProviderRegistry
 from tests.library.fake_celery import FakeCelery, Task
 from tests.library.fake_request import FakeRequest
@@ -323,16 +323,15 @@ class TestEnvironmentBackend(unittest.TestCase):
             1. Request an environment from the environment provider.
             2. Verify that the environment provider starts the celery task.
         """
-        database = FakeDatabase()
         task_id = "f3286e6e-946c-4510-a935-abd7c7bdbe17"
         get_environment_mock.delay.return_value = Task(task_id)
         suite_id = "ca950c50-03d3-4a3c-8507-b4229dd3f8ea"
 
         self.logger.info("STEP: Request an environment from the environment provider.")
-        response = request_environment(suite_id, database)
+        response = request_environment(suite_id)
 
         self.logger.info(
             "STEP: Verify that the environment provider starts the celery task."
         )
         self.assertEqual(response, task_id)
-        get_environment_mock.delay.assert_called_once_with(suite_id, database)
+        get_environment_mock.delay.assert_called_once_with(suite_id)

@@ -182,4 +182,4 @@ class TestEnvironment(unittest.TestCase):
             "STEP: Verify that the environment provider gets an environment."
         )
         self.assertEqual(response.media, {"result": "success", "data": {"id": task_id}})
-        get_environment_mock.delay.assert_called_once_with(suite_id, database)
+        get_environment_mock.delay.assert_called_once_with(suite_id)
