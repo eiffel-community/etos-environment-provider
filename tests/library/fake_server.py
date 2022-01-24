@@ -1,4 +1,4 @@
-# Copyright 2021 Axis Communications AB.
+# Copyright 2021-2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -86,7 +86,7 @@ class FakeServer:
     def __exit__(self, *_):
         """Shut down fake server."""
         self.mock_server.shutdown()
-        self.thread.join()
+        self.thread.join(timeout=10)
 
 
 class Handler(BaseHTTPRequestHandler):
