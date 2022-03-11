@@ -1,4 +1,4 @@
-# Copyright 2021 Axis Communications AB.
+# Copyright 2021-2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -20,6 +20,9 @@ from environment_provider.iut.iut import Iut
 from environment_provider.iut.iut_provider import IutProvider
 from environment_provider.logs.log_area_provider import LogAreaProvider
 from environment_provider.logs.log_area import LogArea
+
+from environment_provider.external_iut.provider import Provider as ExternalIutProvider
+
 from environment_provider.execution_space.execution_space_provider import (
     ExecutionSpaceProvider,
 )
@@ -105,11 +108,17 @@ def release_environment(
             log_area.get("provider_id")
         ).get("log")
 
-        success, exception = checkin_provider(
-            Iut(**iut), IutProvider(etos, jsontas, iut_ruleset)
-        )
+        if iut_ruleset.get("type", "jsontas") == "external":
+            success, exception = checkin_provider(
+                Iut(**iut), ExternalIutProvider(etos, jsontas, iut_ruleset)
+            )
+        else:
+            success, exception = checkin_provider(
+                Iut(**iut), IutProvider(etos, jsontas, iut_ruleset)
+            )
         if not success:
             failure = exception
+
         success, exception = checkin_provider(
             LogArea(**log_area), LogAreaProvider(etos, jsontas, log_area_ruleset)
         )

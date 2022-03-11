@@ -1,4 +1,4 @@
-# Copyright 2021 Axis Communications AB.
+# Copyright 2021-2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -270,3 +270,6 @@ class Provider:
             self.checkin_all()
             raise
         return iuts
+
+    # Compatibility with the JSONTas providers.
+    wait_for_and_checkout_iuts = request_and_wait_for_iuts

@@ -1,4 +1,4 @@
-# Copyright 2020-2021 Axis Communications AB.
+# Copyright 2020-2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -25,6 +25,8 @@ from environment_provider.execution_space.execution_space_provider import (
 )
 from environment_provider.iut.iut_provider import IutProvider
 from environment_provider.logs.log_area_provider import LogAreaProvider
+
+from environment_provider.external_iut.provider import Provider as ExternalIutProvider
 
 
 class ProviderRegistry:
@@ -170,7 +172,10 @@ class ProviderRegistry:
         :param ruleset: IUT provider JSON definition to register.
         :type ruleset: dict
         """
-        schema = "iut/iut_definition.json"
+        if ruleset.get("iut", {}).get("type", "jsontas") == "external":
+            schema = "external_iut/iut_definition.json"
+        else:
+            schema = "iut/iut_definition.json"
         data = self.validate(ruleset, schema)
         self.logger.info("Registering %r", data)
         self.database.writer.hdel("EnvironmentProvider:IUTProviders", data["iut"]["id"])
@@ -228,16 +233,20 @@ class ProviderRegistry:
         :return: IUT provider object.
         :rtype: :obj:`environment_provider.iut.iut_provider.IutProvider`
         """
-        provider_json = self.database.reader.hget(
+        provider_str = self.database.reader.hget(
             f"EnvironmentProvider:{suite_id}", "IUTProvider"
         )
-        self.logger.info(provider_json)
-        if provider_json:
-            provider = IutProvider(
-                self.etos,
-                self.jsontas,
-                json.loads(provider_json, object_pairs_hook=OrderedDict).get("iut"),
-            )
+        self.logger.info(provider_str)
+        if provider_str:
+            provider_json = json.loads(provider_str, object_pairs_hook=OrderedDict)
+            if provider_json.get("iut").get("type", "jsontas") == "external":
+                provider = ExternalIutProvider(
+                    self.etos, self.jsontas, provider_json.get("iut")
+                )
+            else:
+                provider = IutProvider(
+                    self.etos, self.jsontas, provider_json.get("iut")
+                )
             self.etos.config.get("PROVIDERS").append(provider)
             return provider
         return None
