@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """External IUT provider."""
+import os
 from json.decoder import JSONDecodeError
 import time
 import logging
@@ -83,6 +84,11 @@ class Provider:
         :type iut: :obj:`environment_provider.iut.iut.Iut` or list
         """
         end = self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
+        if end is None:
+            end = os.getenv("ENVIRONMENT_PROVIDER_WAIT_FOR_IUT_TIMEOUT")
+        if end is None:
+            end = 3600
+        end = int(end)
 
         if not isinstance(iut, list):
             self.logger.debug("Check in IUT %r (timeout %ds)", iut, end)

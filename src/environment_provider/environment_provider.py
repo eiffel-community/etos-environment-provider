@@ -156,6 +156,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             "artifact_published", self.environment_provider_config.artifact_published
         )
         self.dataset.add("tercc", self.environment_provider_config.tercc)
+        self.dataset.add("dataset", self.registry.dataset(suite_id))
         self.dataset.merge(self.registry.dataset(suite_id))
 
     def cleanup(self):
