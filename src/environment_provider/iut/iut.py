@@ -62,7 +62,9 @@ class Iut:
         :rtype: dict
         """
         iut_dictionary = deepcopy(self._iut_dictionary)
-        if iut_dictionary.get("identity") and not isinstance(iut_dictionary.get("identity"), str):
+        if iut_dictionary.get("identity") and not isinstance(
+            iut_dictionary.get("identity"), str
+        ):
             iut_dictionary["identity"] = iut_dictionary["identity"].to_string()
         return iut_dictionary
 
