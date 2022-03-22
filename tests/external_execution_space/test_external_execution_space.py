@@ -1,4 +1,4 @@
-# Copyright 2021-2022 Axis Communications AB.
+# Copyright 2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Integration tests for the external IUT."""
+"""Integration tests for the external execution space."""
 import os
 import logging
 import unittest
@@ -24,17 +24,17 @@ from packageurl import PackageURL
 
 from tests.library.fake_server import FakeServer
 
-from environment_provider.external_iut.provider import Provider
-from environment_provider.iut.exceptions import (
-    IutCheckinFailed,
-    IutCheckoutFailed,
-    IutNotAvailable,
+from environment_provider.external_execution_space.provider import Provider
+from environment_provider.execution_space.exceptions import (
+    ExecutionSpaceCheckinFailed,
+    ExecutionSpaceCheckoutFailed,
+    ExecutionSpaceNotAvailable,
 )
-from environment_provider.iut.iut import Iut
+from environment_provider.execution_space.execution_space import ExecutionSpace
 
 
-class TestExternalIUT(unittest.TestCase):
-    """Test the external IUT provider."""
+class TestExternalExecutionSpace(unittest.TestCase):
+    """Test the external execution space provider."""
 
     logger = logging.getLogger(__name__)
 
@@ -43,10 +43,10 @@ class TestExternalIUT(unittest.TestCase):
         os.environ["ETOS_DEFAULT_HTTP_TIMEOUT"] = "3600"
 
     def test_provider_start(self):
-        """Test that it is possible to start an external IUT provider.
+        """Test that it is possible to start an external execution space provider.
 
         Approval criteria:
-            - It shall be possible to send start to an external IUT provider.
+            - It shall be possible to send start to an external execution space provider.
 
         Test steps::
             1. Initialize an external provider.
@@ -164,18 +164,18 @@ class TestExternalIUT(unittest.TestCase):
                 provider.start(1, 2)
 
     def test_provider_stop(self):
-        """Test that it is possible to checkin an external IUT provider.
+        """Test that it is possible to checkin an external execution space provider.
 
         Approval criteria:
-            - It shall be possible to send stop to an external IUT provider.
+            - It shall be possible to send stop to an external execution space provider.
 
         Test steps::
             1. Initialize an external provider.
-            2. Send a stop request for a single IUT.
+            2. Send a stop request for a single execution space.
             3. Verify that the stop endpoint is called.
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
-        etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
+        etos.config.set("WAIT_FOR_EXECUTION_SPACE_TIMEOUT", 1)
         jsontas = JsonTas()
         jsontas.dataset.merge(
             {
@@ -188,33 +188,38 @@ class TestExternalIUT(unittest.TestCase):
                 "context": "context",
             }
         )
-        iut = Iut(test_iut=1)
+        execution_space = ExecutionSpace(test_execution_space=1)
 
         with FakeServer("no_content", {}) as server:
             ruleset = {"id": "test_provider_stop", "stop": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
             provider = Provider(etos, jsontas, ruleset)
-            self.logger.info("STEP: Send a stop request for a single IUT.")
-            provider.checkin(iut)
+            self.logger.info("STEP: Send a stop request for a single execution space.")
+            provider.checkin(execution_space)
             self.logger.info("STEP: Verify that the stop endpoint is called.")
             self.assertEqual(server.nbr_of_requests, 1)
-            self.assertEqual(server.requests, [[iut.as_dict]])
+            self.assertEqual(server.requests, [[execution_space.as_dict]])
 
     def test_provider_stop_many(self):
-        """Test that it is possible to checkin an external IUT provider with many IUTs.
+        """Test that it is possible to checkin an external execution space provider with many
+           execution spaces.
 
         Approval criteria:
-            - It shall be possible to send stop to an external IUT provider with multiple IUTs.
+            - It shall be possible to send stop to an external execution space provider
+              with multiple execution spaces.
 
         Test steps::
             1. Initialize an external provider.
-            2. Send a stop request for multiple IUTs.
+            2. Send a stop request for multiple execution spaces.
             3. Verify that the stop endpoint is called.
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
-        etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
+        etos.config.set("WAIT_FOR_EXECUTION_SPACE_TIMEOUT", 1)
         jsontas = JsonTas()
-        iuts = [Iut(test_iut=1), Iut(test_iut=2)]
+        execution_spaces = [
+            ExecutionSpace(test_execution_space=1),
+            ExecutionSpace(test_execution_space=2),
+        ]
         jsontas.dataset.merge(
             {
                 "identity": PackageURL.from_string("pkg:testing/etos"),
@@ -224,34 +229,36 @@ class TestExternalIUT(unittest.TestCase):
                 "tercc": "tercc",
                 "dataset": {},
                 "context": "context",
-                "iuts": iuts,
+                "execution_spaces": execution_spaces,
             }
         )
-        dict_iuts = [iut.as_dict for iut in iuts]
+        dict_execution_spaces = [
+            execution_space.as_dict for execution_space in execution_spaces
+        ]
 
         with FakeServer("no_content", {}) as server:
             ruleset = {"id": "test_provider_stop_many", "stop": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
             provider = Provider(etos, jsontas, ruleset)
-            self.logger.info("STEP: Send a stop request for multiple IUTs.")
+            self.logger.info("STEP: Send a stop request for multiple execution spaces.")
             provider.checkin_all()
             self.logger.info("STEP: Verify that the stop endpoint is called.")
             self.assertEqual(server.nbr_of_requests, 1)
-            self.assertEqual(server.requests, [dict_iuts])
+            self.assertEqual(server.requests, [dict_execution_spaces])
 
     def test_provider_stop_failed(self):
-        """Test that the checkin method raises an IutCheckinFailed exception.
+        """Test that the checkin method raises an ExecutionSpaceCheckinFailed exception.
 
         Approval criteria:
-            - The checkin method shall fail with an IutCheckinFailed exception.
+            - The checkin method shall fail with an ExecutionSpaceCheckinFailed exception.
 
         Test steps::
             1. Initialize an external provider.
             2. Send a stop request that fails.
-            3. Verify that the checkin method raises IutCheckinFailed exception.
+            3. Verify that the checkin method raises ExecutionSpaceCheckinFailed exception.
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
-        etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
+        etos.config.set("WAIT_FOR_EXECUTION_SPACE_TIMEOUT", 1)
         jsontas = JsonTas()
         jsontas.dataset.merge(
             {
@@ -264,18 +271,19 @@ class TestExternalIUT(unittest.TestCase):
                 "context": "context",
             }
         )
-        iut = Iut(test_iut=1)
+        execution_space = ExecutionSpace(test_execution_space=1)
 
         with FakeServer("bad_request", {"error": "no"}) as server:
             ruleset = {"id": "test_provider_stop_failed", "stop": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
             provider = Provider(etos, jsontas, ruleset)
             self.logger.info("STEP: Send a stop request that fails.")
-            with self.assertRaises(IutCheckinFailed):
+            with self.assertRaises(ExecutionSpaceCheckinFailed):
                 self.logger.info(
-                    "STEP: Verify that the checkin method raises IutCheckinFailed exception."
+                    "STEP: Verify that the checkin method raises ExecutionSpaceCheckinFailed "
+                    "exception."
                 )
-                provider.checkin(iut)
+                provider.checkin(execution_space)
 
     def test_provider_stop_timeout(self):
         """Test that the checkin method raises a TimeoutError when timed out.
@@ -285,11 +293,11 @@ class TestExternalIUT(unittest.TestCase):
 
         Test steps::
             1. Initialize an external provider.
-            2. Send a stop request for IUTs that times out.
+            2. Send a stop request for execution spaces that times out.
             3. Verify that the checkin method raises a TimeoutError.
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
-        etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
+        etos.config.set("WAIT_FOR_EXECUTION_SPACE_TIMEOUT", 1)
         jsontas = JsonTas()
         jsontas.dataset.merge(
             {
@@ -302,7 +310,7 @@ class TestExternalIUT(unittest.TestCase):
                 "context": "context",
             }
         )
-        iut = Iut(test_iut=1)
+        execution_space = ExecutionSpace(test_execution_space=1)
         with FakeServer("bad_request", {}) as server:
             ruleset = {
                 "id": "test_provider_stop_timeout",
@@ -315,7 +323,7 @@ class TestExternalIUT(unittest.TestCase):
                 self.logger.info(
                     "STEP: Verify that the checkin method raises a TimeoutError."
                 )
-                provider.checkin(iut)
+                provider.checkin(execution_space)
 
     def test_provider_status(self):
         """Test that the wait method waits for status DONE and exits with response.
@@ -325,11 +333,11 @@ class TestExternalIUT(unittest.TestCase):
 
         Test steps::
             1. Initialize an external provider.
-            2. Send a status request for a started IUT provider.
+            2. Send a status request for a started execution space provider.
             3. Verify that the wait method returns response on DONE.
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
-        etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
+        etos.config.set("WAIT_FOR_EXECUTION_SPACE_TIMEOUT", 1)
         jsontas = JsonTas()
         jsontas.dataset.merge(
             {
@@ -347,7 +355,9 @@ class TestExternalIUT(unittest.TestCase):
             ruleset = {"id": "test_provider_status", "status": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
             provider = Provider(etos, jsontas, ruleset)
-            self.logger.info("STEP: Send a status request for a started IUT provider.")
+            self.logger.info(
+                "STEP: Send a status request for a started execution space provider."
+            )
             response = provider.wait("1")
             self.logger.info(
                 "STEP: Verify that the wait method return response on DONE."
@@ -362,11 +372,11 @@ class TestExternalIUT(unittest.TestCase):
 
         Test steps::
             1. Initialize an external provider.
-            2. Send a status request for a started IUT provider.
+            2. Send a status request for a started execution space provider.
             3. Verify that the wait method waits on PENDING.
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
-        etos.config.set("WAIT_FOR_IUT_TIMEOUT", 10)
+        etos.config.set("WAIT_FOR_EXECUTION_SPACE_TIMEOUT", 10)
         jsontas = JsonTas()
         jsontas.dataset.merge(
             {
@@ -387,24 +397,26 @@ class TestExternalIUT(unittest.TestCase):
             }
             self.logger.info("STEP: Initialize an external provider.")
             provider = Provider(etos, jsontas, ruleset)
-            self.logger.info("STEP: Send a status request for a started IUT provider.")
+            self.logger.info(
+                "STEP: Send a status request for a started execution space provider."
+            )
             provider.wait("1")
             self.logger.info("STEP: Verify that the wait method waits on PENDING.")
             self.assertEqual(server.nbr_of_requests, len(responses))
 
     def test_provider_status_failed(self):
-        """Test that the wait method raises IutCheckoutFailed on FAILED status.
+        """Test that the wait method raises ExecutionSpaceCheckoutFailed on FAILED status.
 
         Approvial criteria:
-            - The wait method shall raise IutCheckoutFailed on a FAILED status.
+            - The wait method shall raise ExecutionSpaceCheckoutFailed on a FAILED status.
 
         Test steps::
             1. Initialize an external provider.
-            2. Send a status request for a started IUT provider.
-            3. Verify that the wait method raises IutCheckoutFailed.
+            2. Send a status request for a started execution space provider.
+            3. Verify that the wait method raises ExecutionSpaceCheckoutFailed.
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
-        etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
+        etos.config.set("WAIT_FOR_EXECUTION_SPACE_TIMEOUT", 1)
         jsontas = JsonTas()
         jsontas.dataset.merge(
             {
@@ -427,10 +439,12 @@ class TestExternalIUT(unittest.TestCase):
             }
             self.logger.info("STEP: Initialize an external provider.")
             provider = Provider(etos, jsontas, ruleset)
-            self.logger.info("STEP: Send a status request for a started IUT provider.")
-            with self.assertRaises(IutCheckoutFailed):
+            self.logger.info(
+                "STEP: Send a status request for a started execution space provider."
+            )
+            with self.assertRaises(ExecutionSpaceCheckoutFailed):
                 self.logger.info(
-                    "STEP: Verify that the wait method raises IutCheckoutFailed."
+                    "STEP: Verify that the wait method raises ExecutionSpaceCheckoutFailed."
                 )
                 provider.wait("1")
 
@@ -438,17 +452,17 @@ class TestExternalIUT(unittest.TestCase):
         """Test that the wait method handles HTTP errors.
 
         Approvial criteria:
-            - The wait method shall raise IutNotAvailable on 404 errors.
+            - The wait method shall raise ExecutionSpaceNotAvailable on 404 errors.
             - The wait method shall raise RuntimeError on 400 errors.
 
         Test steps::
             1. For status [400, 404]:
                 1.1 Initialize an external provider.
-                1.2 Send a status request for a started IUT provider.
+                1.2 Send a status request for a started execution space provider.
                 1.3 Verify that the wait method raises the correct exception.
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
-        etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
+        etos.config.set("WAIT_FOR_EXECUTION_SPACE_TIMEOUT", 1)
         jsontas = JsonTas()
         jsontas.dataset.merge(
             {
@@ -464,7 +478,7 @@ class TestExternalIUT(unittest.TestCase):
         self.logger.info("STEP: For status [400, 404]:")
         for status, exception in (
             ("bad_request", RuntimeError),
-            ("not_found", IutNotAvailable),
+            ("not_found", ExecutionSpaceNotAvailable),
         ):
             with FakeServer(status, {"error": "failure"}) as server:
                 ruleset = {
@@ -474,7 +488,7 @@ class TestExternalIUT(unittest.TestCase):
                 self.logger.info("STEP: Initialize an external provider.")
                 provider = Provider(etos, jsontas, ruleset)
                 self.logger.info(
-                    "STEP: Send a status request for a started IUT provider."
+                    "STEP: Send a status request for a started execution space provider."
                 )
                 with self.assertRaises(exception):
                     self.logger.info(
@@ -494,7 +508,7 @@ class TestExternalIUT(unittest.TestCase):
             3. Verify that the wait method raises TimeoutError.
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
-        etos.config.set("WAIT_FOR_IUT_TIMEOUT", 1)
+        etos.config.set("WAIT_FOR_EXECUTION_SPACE_TIMEOUT", 1)
         jsontas = JsonTas()
         jsontas.dataset.merge(
             {
@@ -522,18 +536,19 @@ class TestExternalIUT(unittest.TestCase):
                 provider.wait("1")
 
     def test_request_and_wait(self):
-        """Test that the external IUT provider can checkout IUTs.
+        """Test that the external execution space provider can checkout execution spaces.
 
-        Approvial criteria:
-            - The external IUT provider shall request an external provider and checkout IUTs.
+        Approval criteria:
+            - The external execution space provider shall request an external provider and
+              checkout execution spaces.
 
         Test steps::
             1. Initialize an external provider.
-            2. Send a checkout request via the external IUT provider.
-            3. Verify that the provider returns a list of checked out IUTs.
+            2. Send a checkout request via the external execution space provider.
+            3. Verify that the provider returns a list of checked out execution spaces.
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
-        etos.config.set("WAIT_FOR_IUT_TIMEOUT", 10)
+        etos.config.set("WAIT_FOR_EXECUTION_SPACE_TIMEOUT", 10)
         jsontas = JsonTas()
         identity = PackageURL.from_string("pkg:testing/etos")
         jsontas.dataset.merge(
@@ -548,14 +563,18 @@ class TestExternalIUT(unittest.TestCase):
             }
         )
         start_id = "1"
-        test_id = "iut123"
+        test_id = "executionspace123"
         provider_id = "test_request_and_wait"
         # First request is 'start'.
         # Second request is 'status'.
         # Third request is 'stop' which should not be requested in this test.
         with FakeServer(
             ["ok", "ok", "no_content"],
-            [{"id": start_id}, {"iuts": [{"test_id": test_id}], "status": "DONE"}, {}],
+            [
+                {"id": start_id},
+                {"execution_spaces": [{"test_id": test_id}], "status": "DONE"},
+                {},
+            ],
         ) as server:
             ruleset = {
                 "id": provider_id,
@@ -566,14 +585,16 @@ class TestExternalIUT(unittest.TestCase):
             self.logger.info("STEP: Initialize an external provider.")
             provider = Provider(etos, jsontas, ruleset)
             self.logger.info(
-                "STEP: Send a checkout request via the external IUT provider."
+                "STEP: Send a checkout request via the external execution space provider."
             )
-            iuts = provider.request_and_wait_for_iuts()
+            execution_spaces = provider.request_and_wait_for_execution_spaces()
             self.logger.info(
-                "STEP: Verify that the provider returns a list of checked out IUTs."
+                "STEP: Verify that the provider returns a list of checked out execution spaces."
             )
-            dict_iuts = [iut.as_dict for iut in iuts]
-            test_iuts = [
-                Iut(provider_id=provider_id, test_id=test_id, identity=identity).as_dict
+            dict_execution_spaces = [
+                execution_space.as_dict for execution_space in execution_spaces
             ]
-            self.assertEqual(dict_iuts, test_iuts)
+            test_execution_spaces = [
+                ExecutionSpace(provider_id=provider_id, test_id=test_id).as_dict
+            ]
+            self.assertEqual(dict_execution_spaces, test_execution_spaces)
