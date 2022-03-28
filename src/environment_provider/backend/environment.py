@@ -95,6 +95,7 @@ def release_environment(
         return False, f"Nothing to release with task_id {release_id}"
     failure = None
     for suite in task_result.result.get("suites", []):
+        etos.config.set("SUITE_ID", suite.get("suite_id"))
         iut = suite.get("iut")
         iut_ruleset = provider_registry.get_iut_provider_by_id(
             iut.get("provider_id")

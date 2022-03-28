@@ -66,6 +66,7 @@ class Provider:
         self.dataset = jsontas.dataset
         self.ruleset = ruleset
         self.id = self.ruleset.get("id")  # pylint:disable=invalid-name
+        self.identifier = self.etos.config.get("SUITE_ID")
         self.logger.info("Initialized external IUT provider %r", self.id)
 
     @property
@@ -102,7 +103,9 @@ class Provider:
         while time.time() < timeout:
             time.sleep(2)
             try:
-                response = requests.post(host, json=iuts)
+                response = requests.post(
+                    host, json=iuts, headers={"X-ETOS-ID": self.identifier}
+                )
                 if response.status_code == requests.codes["no_content"]:
                     return
                 response = response.json()
@@ -149,6 +152,7 @@ class Provider:
             "POST",
             self.ruleset.get("start", {}).get("host"),
             json=data,
+            headers={"X-ETOS-ID": self.identifier},
         )
         try:
             for response in response_iterator:
@@ -182,7 +186,11 @@ class Provider:
         while time.time() < timeout:
             time.sleep(2)
             try:
-                response = requests.get(host, params={"id": provider_id})
+                response = requests.get(
+                    host,
+                    params={"id": provider_id},
+                    headers={"X-ETOS-ID": self.identifier},
+                )
                 self.check_error(response)
                 response = response.json()
             except ConnectionError:
