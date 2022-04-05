@@ -53,7 +53,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     iut_provider = None
     log_area_provider = None
     execution_space_provider = None
-    task_track_started = True
+    task_track_started = True  # Make celery task report 'STARTED' state
     lock = Lock()
 
     def __init__(self, suite_id):
@@ -74,9 +74,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             # configuration dictionary.
             # The impact of not doing this is that the environment provider would re-use
             # another workers configuration instead of using its own.
-            self.etos.config.config = deepcopy(
-                self.etos.config.config
-            )  # pylint:disable=protected-access
+            self.etos.config.config = deepcopy(self.etos.config.config)
             self.jsontas = JsonTas()
             self.dataset = self.jsontas.dataset
 
@@ -87,7 +85,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.splitter = Splitter(self.etos, {})
 
     def configure(self, suite_id):
-        """Configure environment provider and start RabbitMQ publisher.
+        """Configure environment provider.
 
         :param suite_id: Suite ID for this task.
         :type suite_id: str
@@ -123,7 +121,6 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         )
 
         self.etos.config.rabbitmq_publisher_from_environment()
-        self.etos.start_publisher()
         self.environment_provider_config = Config(self.etos, suite_id)
         if not self.environment_provider_config.generated:
             missing = [
