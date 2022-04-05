@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,6 +15,6 @@
 # limitations under the License.
 """ETOS Environment Provider execptions."""
 # pylint:disable=wildcard-import,unused-wildcard-import
-from environment_provider.iut.exceptions import *
-from environment_provider.execution_space.exceptions import *
-from environment_provider.logs.exceptions import *
+from iut_provider.exceptions import *
+from execution_space_provider.exceptions import *
+from log_area_provider.exceptions import *

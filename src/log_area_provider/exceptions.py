@@ -13,16 +13,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ETOS environment provider module."""
-import os
-from importlib.metadata import version, PackageNotFoundError
-from etos_lib.logging.logger import setup_logging
+"""Log area provider exceptions."""
 
-try:
-    VERSION = version("environment_provider")
-except PackageNotFoundError:
-    VERSION = "Unknown"
 
-DEV = os.getenv("DEV", "false").lower() == "true"
-ENVIRONMENT = "development" if DEV else "production"
-setup_logging("ETOS Environment Provider", VERSION, ENVIRONMENT)
+class NoLogAreaFound(Exception):
+    """Log area not found."""
+
+
+class LogAreaNotAvailable(Exception):
+    """Log area does not exist."""
+
+
+class LogAreaCheckoutFailed(Exception):
+    """Checkout failed."""
+
+
+class LogAreaCheckinFailed(Exception):
+    """Checkin failed."""
+
+
+class NotEnoughLogAreasAvailable(Exception):
+    """Too many log areas requested."""

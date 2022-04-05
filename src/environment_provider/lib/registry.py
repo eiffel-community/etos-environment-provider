@@ -14,19 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS Environment Provider registry module."""
-import os
 import json
 import logging
 from collections import OrderedDict
 import jsonschema
-from environment_provider import BASE
-from environment_provider.execution_space.execution_space_provider import (
+
+from execution_space_provider import EXECUTION_SPACE_PROVIDER_SCHEMA
+from execution_space_provider.execution_space_provider import (
     ExecutionSpaceProvider,
 )
-from environment_provider.iut.iut_provider import IutProvider
-from environment_provider.logs.log_area_provider import LogAreaProvider
+from iut_provider import IUT_PROVIDER_SCHEMA, EXTERNAL_IUT_PROVIDER_SCHEMA
+from iut_provider.iut_provider import IutProvider
+from iut_provider.external_iut_provider import ExternalIutProvider
 
-from environment_provider.external_iut.provider import Provider as ExternalIutProvider
+from log_area_provider import LOG_AREA_PROVIDER_SCHEMA
+from log_area_provider.log_area_provider import LogAreaProvider
 
 
 class ProviderRegistry:
@@ -85,10 +87,8 @@ class ProviderRegistry:
         :return: Provider JSON that was validated.
         :rtype: dict
         """
-        self.logger.debug(
-            "Validating provider %r against %r", provider, os.path.join(BASE, schema)
-        )
-        with open(os.path.join(BASE, schema), encoding="UTF-8") as schema_file:
+        self.logger.debug("Validating provider %r against %r", provider, schema)
+        with open(schema, encoding="UTF-8") as schema_file:
             schema = json.load(schema_file)
         jsonschema.validate(instance=provider, schema=schema)
         return provider
@@ -156,8 +156,7 @@ class ProviderRegistry:
         :param ruleset: Log area JSON definition to register.
         :type ruleset: dict
         """
-        schema = "logs/log_area_definition.json"
-        data = self.validate(ruleset, schema)
+        data = self.validate(ruleset, LOG_AREA_PROVIDER_SCHEMA)
         self.logger.info("Registering %r", data)
         self.database.writer.hdel(
             "EnvironmentProvider:LogAreaProviders", data["log"]["id"]
@@ -173,9 +172,9 @@ class ProviderRegistry:
         :type ruleset: dict
         """
         if ruleset.get("iut", {}).get("type", "jsontas") == "external":
-            schema = "external_iut/iut_definition.json"
+            schema = EXTERNAL_IUT_PROVIDER_SCHEMA
         else:
-            schema = "iut/iut_definition.json"
+            schema = IUT_PROVIDER_SCHEMA
         data = self.validate(ruleset, schema)
         self.logger.info("Registering %r", data)
         self.database.writer.hdel("EnvironmentProvider:IUTProviders", data["iut"]["id"])
@@ -189,8 +188,7 @@ class ProviderRegistry:
         :param ruleset: Execution space provider JSON definition to register.
         :type ruleset: dict
         """
-        schema = "execution_space/execution_space_definition.json"
-        data = self.validate(ruleset, schema)
+        data = self.validate(ruleset, EXECUTION_SPACE_PROVIDER_SCHEMA)
         self.logger.info("Registering %r", data)
         self.database.writer.hdel(
             "EnvironmentProvider:ExecutionSpaceProviders", data["execution_space"]["id"]

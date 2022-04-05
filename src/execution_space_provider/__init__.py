@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright 2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -13,16 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ETOS environment provider module."""
-import os
-from importlib.metadata import version, PackageNotFoundError
-from etos_lib.logging.logger import setup_logging
+"""ETOS execution space provider module."""
+import pathlib
 
-try:
-    VERSION = version("environment_provider")
-except PackageNotFoundError:
-    VERSION = "Unknown"
-
-DEV = os.getenv("DEV", "false").lower() == "true"
-ENVIRONMENT = "development" if DEV else "production"
-setup_logging("ETOS Environment Provider", VERSION, ENVIRONMENT)
+EXECUTION_SPACE_PROVIDER_SCHEMA = (
+    pathlib.Path(__file__).parent.resolve().joinpath("./execution_space_schema.json")
+)

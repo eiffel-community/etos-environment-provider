@@ -16,17 +16,18 @@
 """Backend for the environment requests."""
 import traceback
 
-from environment_provider.iut.iut import Iut
-from environment_provider.iut.iut_provider import IutProvider
-from environment_provider.logs.log_area_provider import LogAreaProvider
-from environment_provider.logs.log_area import LogArea
+from log_area_provider.log_area_provider import LogAreaProvider
+from log_area_provider.log_area import LogArea
 
-from environment_provider.external_iut.provider import Provider as ExternalIutProvider
+from iut_provider.iut import Iut
+from iut_provider.iut_provider import IutProvider
+from iut_provider.external_iut_provider import ExternalIutProvider
 
-from environment_provider.execution_space.execution_space_provider import (
+from execution_space_provider.execution_space_provider import (
     ExecutionSpaceProvider,
 )
-from environment_provider.execution_space.execution_space import ExecutionSpace
+from execution_space_provider.execution_space import ExecutionSpace
+
 from environment_provider.environment_provider import get_environment
 
 

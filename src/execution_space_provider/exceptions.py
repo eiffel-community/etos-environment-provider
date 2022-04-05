@@ -13,16 +13,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ETOS environment provider module."""
-import os
-from importlib.metadata import version, PackageNotFoundError
-from etos_lib.logging.logger import setup_logging
+"""Execution space exception."""
 
-try:
-    VERSION = version("environment_provider")
-except PackageNotFoundError:
-    VERSION = "Unknown"
 
-DEV = os.getenv("DEV", "false").lower() == "true"
-ENVIRONMENT = "development" if DEV else "production"
-setup_logging("ETOS Environment Provider", VERSION, ENVIRONMENT)
+class NoExecutionSpaceFound(Exception):
+    """Execution space not found."""
+
+
+class ExecutionSpaceNotAvailable(Exception):
+    """Execution space does not exist."""
+
+
+class ExecutionSpaceCheckoutFailed(Exception):
+    """Checkout failed."""
+
+
+class ExecutionSpaceCheckinFailed(Exception):
+    """Checkin failed."""
+
+
+class NotEnoughExecutionSpacesAvailable(Exception):
+    """Too many execution spaces requested."""
