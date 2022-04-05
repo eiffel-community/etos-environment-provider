@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """External Execution Space provider."""
+import os
 from json.decoder import JSONDecodeError
 import time
 import logging
@@ -64,6 +65,7 @@ class ExternalProvider:
         self.dataset = jsontas.dataset
         self.ruleset = ruleset
         self.id = self.ruleset.get("id")  # pylint:disable=invalid-name
+        self.identifier = self.etos.config.get("SUITE_ID")
         self.logger.info("Initialized external execution space provider %r", self.id)
 
     @property
@@ -83,6 +85,11 @@ class ExternalProvider:
             :obj:`environment_provider.execution_space.execution_space.ExecutionSpace` or list
         """
         end = self.etos.config.get("WAIT_FOR_EXECUTION_SPACE_TIMEOUT")
+        if end is None:
+            end = os.getenv("ENVIRONMENT_PROVIDER_WAIT_FOR_EXECUTION_SPACE_TIMEOUT")
+        if end is None:
+            end = 3600
+        end = int(end)
 
         if not isinstance(execution_space, list):
             self.logger.debug(
@@ -102,14 +109,16 @@ class ExternalProvider:
         while time.time() < timeout:
             time.sleep(2)
             try:
-                response = requests.post(host, json=execution_spaces)
+                response = requests.post(
+                    host, json=execution_spaces, headers={"X-ETOS-ID": self.identifier}
+                )
                 if response.status_code == requests.codes["no_content"]:
                     return
                 response = response.json()
                 if response.get("error") is not None:
                     raise ExecutionSpaceCheckinFailed(
                         f"Unable to check in {execution_spaces} "
-                        r"({response.get('error')})"
+                        f"({response.get('error')})"
                     )
             except ConnectionError:
                 self.logger.error("Error connecting to %r", host)
@@ -150,6 +159,7 @@ class ExternalProvider:
             "POST",
             self.ruleset.get("start", {}).get("host"),
             json=data,
+            headers={"X-ETOS-ID": self.identifier},
         )
         try:
             for response in response_iterator:
@@ -183,7 +193,11 @@ class ExternalProvider:
         while time.time() < timeout:
             time.sleep(2)
             try:
-                response = requests.get(host, params={"id": provider_id})
+                response = requests.get(
+                    host,
+                    params={"id": provider_id},
+                    headers={"X-ETOS-ID": self.identifier},
+                )
                 self.check_error(response)
                 response = response.json()
             except ConnectionError:
@@ -278,3 +292,6 @@ class ExternalProvider:
             self.checkin_all()
             raise
         return execution_spaces
+
+    # Compatibility with the JSONTas providers.
+    wait_for_and_checkout_execution_spaces = request_and_wait_for_execution_spaces

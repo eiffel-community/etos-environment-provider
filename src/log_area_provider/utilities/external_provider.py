@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """External log area provider."""
+import os
 from json.decoder import JSONDecodeError
 import time
 import logging
@@ -64,6 +65,7 @@ class ExternalProvider:
         self.dataset = jsontas.dataset
         self.ruleset = ruleset
         self.id = self.ruleset.get("id")  # pylint:disable=invalid-name
+        self.identifier = self.etos.config.get("SUITE_ID")
         self.logger.info("Initialized external log area provider %r", self.id)
 
     @property
@@ -82,6 +84,11 @@ class ExternalProvider:
         :type log_area: :obj:`environment_provider.logs.log_area.LogArea` or list
         """
         end = self.etos.config.get("WAIT_FOR_LOG_AREA_TIMEOUT")
+        if end is None:
+            end = os.getenv("ENVIRONMENT_PROVIDER_WAIT_FOR_LOG_AREA_TIMEOUT")
+        if end is None:
+            end = 3600
+        end = int(end)
 
         if not isinstance(log_area, list):
             self.logger.debug("Check in log area %r (timeout %ds)", log_area, end)
@@ -95,13 +102,15 @@ class ExternalProvider:
         while time.time() < timeout:
             time.sleep(2)
             try:
-                response = requests.post(host, json=log_areas)
+                response = requests.post(
+                    host, json=log_areas, headers={"X-ETOS-ID": self.identifier}
+                )
                 if response.status_code == requests.codes["no_content"]:
                     return
                 response = response.json()
                 if response.get("error") is not None:
                     raise LogAreaCheckinFailed(
-                        f"Unable to check in {log_areas} " r"({response.get('error')})"
+                        f"Unable to check in {log_areas} ({response.get('error')})"
                     )
             except ConnectionError:
                 self.logger.error("Error connecting to %r", host)
@@ -142,6 +151,7 @@ class ExternalProvider:
             "POST",
             self.ruleset.get("start", {}).get("host"),
             json=data,
+            headers={"X-ETOS-ID": self.identifier},
         )
         try:
             for response in response_iterator:
@@ -175,7 +185,11 @@ class ExternalProvider:
         while time.time() < timeout:
             time.sleep(2)
             try:
-                response = requests.get(host, params={"id": provider_id})
+                response = requests.get(
+                    host,
+                    params={"id": provider_id},
+                    headers={"X-ETOS-ID": self.identifier},
+                )
                 self.check_error(response)
                 response = response.json()
             except ConnectionError:
@@ -267,3 +281,6 @@ class ExternalProvider:
             self.checkin_all()
             raise
         return log_areas
+
+    # Compatibility with the JSONTas providers.
+    wait_for_and_checkout_log_areas = request_and_wait_for_log_areas
