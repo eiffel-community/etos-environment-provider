@@ -16,16 +16,13 @@
 """Backend for the environment requests."""
 import traceback
 
-from log_area_provider.log_area_provider import LogAreaProvider
+from log_area_provider import LogAreaProvider
 from log_area_provider.log_area import LogArea
 
+from iut_provider import IutProvider
 from iut_provider.iut import Iut
-from iut_provider.iut_provider import IutProvider
-from iut_provider.external_iut_provider import ExternalIutProvider
 
-from execution_space_provider.execution_space_provider import (
-    ExecutionSpaceProvider,
-)
+from execution_space_provider import ExecutionSpaceProvider
 from execution_space_provider.execution_space import ExecutionSpace
 
 from environment_provider.environment_provider import get_environment
@@ -110,14 +107,9 @@ def release_environment(
             log_area.get("provider_id")
         ).get("log")
 
-        if iut_ruleset.get("type", "jsontas") == "external":
-            success, exception = checkin_provider(
-                Iut(**iut), ExternalIutProvider(etos, jsontas, iut_ruleset)
-            )
-        else:
-            success, exception = checkin_provider(
-                Iut(**iut), IutProvider(etos, jsontas, iut_ruleset)
-            )
+        success, exception = checkin_provider(
+            Iut(**iut), IutProvider(etos, jsontas, iut_ruleset)
+        )
         if not success:
             failure = exception
 

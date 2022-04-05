@@ -1,4 +1,4 @@
-# Copyright 2021-2022 Axis Communications AB.
+# Copyright 2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -13,26 +13,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""External IUT provider."""
-import os
+"""External Execution Space provider."""
 from json.decoder import JSONDecodeError
 import time
 import logging
 from copy import deepcopy
 
 import requests
-from packageurl import PackageURL
 
-from .exceptions import (
-    IutCheckinFailed,
-    IutCheckoutFailed,
-    IutNotAvailable,
+from ..exceptions import (
+    ExecutionSpaceCheckinFailed,
+    ExecutionSpaceCheckoutFailed,
+    ExecutionSpaceNotAvailable,
 )
-from .iut import Iut
+from ..execution_space import ExecutionSpace
 
 
-class ExternalIutProvider:
-    """A generic IUT provider facility for getting IUTs from an external source.
+class ExternalProvider:
+    """An Execution space provider facility for getting Execution spaces from an external source.
 
     The ruleset must provide this structure:
 
@@ -49,25 +47,24 @@ class ExternalIutProvider:
     }
     """
 
-    logger = logging.getLogger("External IUTProvider")
+    logger = logging.getLogger("External ExecutionSpaceProvider")
 
     def __init__(self, etos, jsontas, ruleset):
-        """Initialize IUT provider.
+        """Initialize Execution Space provider.
 
         :param etos: ETOS library instance.
         :type etos: :obj:`etos_lib.etos.Etos`
         :param jsontas: JSONTas instance used to evaluate the rulesets.
         :type jsontas: :obj:`jsontas.jsontas.JsonTas`
-        :param ruleset: JSONTas ruleset for handling IUTs.
+        :param ruleset: JSONTas ruleset for handling execution spaces.
         :type ruleset: dict
         """
         self.etos = etos
-        self.etos.config.set("iuts", [])
+        self.etos.config.set("execution_spaces", [])
         self.dataset = jsontas.dataset
         self.ruleset = ruleset
         self.id = self.ruleset.get("id")  # pylint:disable=invalid-name
-        self.identifier = self.etos.config.get("SUITE_ID")
-        self.logger.info("Initialized external IUT provider %r", self.id)
+        self.logger.info("Initialized external execution space provider %r", self.id)
 
     @property
     def identity(self):
@@ -78,40 +75,41 @@ class ExternalIutProvider:
         """
         return self.dataset.get("identity")
 
-    def checkin(self, iut):
-        """Check in IUTs.
+    def checkin(self, execution_space):
+        """Check in execution spaces.
 
-        :param iut: IUT to checkin.
-        :type iut: :obj:`environment_provider.iut.iut.Iut` or list
+        :param execution_space: Execution space to checkin.
+        :type execution_space:
+            :obj:`environment_provider.execution_space.execution_space.ExecutionSpace` or list
         """
-        end = self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
-        if end is None:
-            end = os.getenv("ENVIRONMENT_PROVIDER_WAIT_FOR_IUT_TIMEOUT")
-        if end is None:
-            end = 3600
-        end = int(end)
+        end = self.etos.config.get("WAIT_FOR_EXECUTION_SPACE_TIMEOUT")
 
-        if not isinstance(iut, list):
-            self.logger.debug("Check in IUT %r (timeout %ds)", iut, end)
-            iut = [iut]
+        if not isinstance(execution_space, list):
+            self.logger.debug(
+                "Check in execution space %r (timeout %ds)", execution_space, end
+            )
+            execution_space = [execution_space]
         else:
-            self.logger.debug("Check in IUTs %r (timeout %ds)", iut, end)
-        iuts = [iut.as_dict for iut in iut]
+            self.logger.debug(
+                "Check in execution spaces %r (timeout %ds)", execution_space, end
+            )
+        execution_spaces = [
+            execution_space.as_dict for execution_space in execution_space
+        ]
 
         host = self.ruleset.get("stop", {}).get("host")
         timeout = time.time() + end
         while time.time() < timeout:
             time.sleep(2)
             try:
-                response = requests.post(
-                    host, json=iuts, headers={"X-ETOS-ID": self.identifier}
-                )
+                response = requests.post(host, json=execution_spaces)
                 if response.status_code == requests.codes["no_content"]:
                     return
                 response = response.json()
                 if response.get("error") is not None:
-                    raise IutCheckinFailed(
-                        f"Unable to check in {iuts} ({response.get('error')})"
+                    raise ExecutionSpaceCheckinFailed(
+                        f"Unable to check in {execution_spaces} "
+                        r"({response.get('error')})"
                     )
             except ConnectionError:
                 self.logger.error("Error connecting to %r", host)
@@ -119,24 +117,24 @@ class ExternalIutProvider:
         raise TimeoutError(f"Unable to stop external provider {self.id!r}")
 
     def checkin_all(self):
-        """Check in all IUTs.
+        """Check in all execution spaces.
 
         This method does the same as 'checkin'. It exists for API consistency.
         """
-        self.logger.debug("Checking in all checked out IUTs")
-        self.checkin(self.dataset.get("iuts", []))
+        self.logger.debug("Checking in all checked out execution spaces")
+        self.checkin(self.dataset.get("execution_spaces", []))
 
     def start(self, minimum_amount, maximum_amount):
-        """Send a start request to an external IUT provider.
+        """Send a start request to an external execution space provider.
 
-        :param minimum_amount: The minimum amount of IUTs to request.
+        :param minimum_amount: The minimum amount of execution spaces to request.
         :type minimum_amount: int
-        :param maximum_amount: The maximum amount of IUTs to request.
+        :param maximum_amount: The maximum amount of execution spaces to request.
         :type maximum_amount: int
-        :return: The ID of the external IUT provider request.
+        :return: The ID of the external execution space provider request.
         :rtype: str
         """
-        self.logger.debug("Start external IUT provider")
+        self.logger.debug("Start external execution space provider")
         data = {
             "minimum_amount": minimum_amount,
             "maximum_amount": maximum_amount,
@@ -152,7 +150,6 @@ class ExternalIutProvider:
             "POST",
             self.ruleset.get("start", {}).get("host"),
             json=data,
-            headers={"X-ETOS-ID": self.identifier},
         )
         try:
             for response in response_iterator:
@@ -167,30 +164,26 @@ class ExternalIutProvider:
         raise TimeoutError(f"Unable to start external provider {self.id!r}")
 
     def wait(self, provider_id):
-        """Wait for external IUT provider to finish its request.
+        """Wait for external execution space provider to finish its request.
 
-        :param provider_id: The ID of the external IUT provider request.
+        :param provider_id: The ID of the external execution space provider request.
         :type provider_id: str
-        :return: The response from the external IUT provider.
+        :return: The response from the external execution space provider.
         :rtype: dict
         """
         self.logger.debug(
-            "Waiting for external IUT provider (%ds timeout)",
-            self.etos.config.get("WAIT_FOR_IUT_TIMEOUT"),
+            "Waiting for external execution space provider (%ds timeout)",
+            self.etos.config.get("WAIT_FOR_EXECUTION_SPACE_TIMEOUT"),
         )
 
         host = self.ruleset.get("status", {}).get("host")
-        timeout = time.time() + self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
+        timeout = time.time() + self.etos.config.get("WAIT_FOR_EXECUTION_SPACE_TIMEOUT")
 
         response = None
         while time.time() < timeout:
             time.sleep(2)
             try:
-                response = requests.get(
-                    host,
-                    params={"id": provider_id},
-                    headers={"X-ETOS-ID": self.identifier},
-                )
+                response = requests.get(host, params={"id": provider_id})
                 self.check_error(response)
                 response = response.json()
             except ConnectionError:
@@ -198,22 +191,23 @@ class ExternalIutProvider:
                 continue
 
             if response.get("status") == "FAILED":
-                raise IutCheckoutFailed(response.get("description"))
+                raise ExecutionSpaceCheckoutFailed(response.get("description"))
             if response.get("status") == "DONE":
                 break
         else:
             raise TimeoutError(
-                f"Status request timed out after {self.etos.config.get('WAIT_FOR_IUT_TIMEOUT')}s"
+                "Status request timed out after "
+                f"{self.etos.config.get('WAIT_FOR_EXECUTION_SPACE_TIMEOUT')}s"
             )
         return response
 
     def check_error(self, response):
         """Check response for errors and try to translate them to something usable.
 
-        :param response: The response from the external IUT provider.
+        :param response: The response from the external execution space provider.
         :type response: dict
         """
-        self.logger.debug("Checking response from external IUT provider")
+        self.logger.debug("Checking response from external execution space provider")
         try:
             if response.json().get("error") is not None:
                 self.logger.error(response.json().get("error"))
@@ -221,69 +215,66 @@ class ExternalIutProvider:
             self.logger.error("Could not parse response as JSON")
 
         if response.status_code == requests.codes["not_found"]:
-            raise IutNotAvailable(
+            raise ExecutionSpaceNotAvailable(
                 f"External provider {self.id!r} did not respond properly"
             )
         if response.status_code == requests.codes["bad_request"]:
             raise RuntimeError(
-                f"IUT provider for {self.id!r} is not properly configured"
+                f"Execution space provider for {self.id!r} is not properly configured"
             )
 
         # This should work, no other errors found.
         # If this does not work, propagate JSONDecodeError up the stack.
         self.logger.debug("Status for response %r", response.json().get("status"))
 
-    def build_iuts(self, response):
-        """Build IUT objects from external IUT provider response.
+    def build_execution_spaces(self, response):
+        """Build execution space objects from external execution space provider response.
 
-        :param response: The response from the external IUT provider.
+        :param response: The response from the external execution space provider.
         :type response: dict
-        :return: A list of IUTs.
+        :return: A list of execution spaces.
         :rtype: list
         """
-        iuts = []
-        for iut in response.get("iuts", []):
-            if iut.get("identity") is None:
-                iut["identity"] = self.identity
-            else:
-                iut["identity"] = PackageURL.from_string(iut.get("identity"))
-            iuts.append(Iut(provider_id=self.id, **iut))
-        return iuts
+        return [
+            ExecutionSpace(provider_id=self.id, **execution_space)
+            for execution_space in response.get("execution_spaces", [])
+        ]
 
-    def request_and_wait_for_iuts(self, minimum_amount=0, maximum_amount=100):
-        """Wait for IUTs from an external IUT provider.
+    def request_and_wait_for_execution_spaces(
+        self, minimum_amount=0, maximum_amount=100
+    ):
+        """Wait for execution spaces from an external execution space provider.
 
-        :raises: IutNotAvailable: If there are no available IUTs.
+        :raises: ExecutionSpaceNotAvailable: If there are no available execution spaces after
+                                             timeout.
 
-        :param minimum_amount: Minimum amount of IUTs to checkout.
+        :param minimum_amount: Minimum amount of execution spaces to checkout.
         :type minimum_amount: int
-        :param maximum_amount: Maximum amount of IUTs to checkout.
+        :param maximum_amount: Maximum amount of execution spaces to checkout.
         :type maximum_amount: int
-        :return: List of checked out IUTs.
+        :return: List of checked out execution spaces.
         :rtype: list
         """
         try:
             provider_id = self.start(minimum_amount, maximum_amount)
             response = self.wait(provider_id)
-            iuts = self.build_iuts(response)
-            if len(iuts) < minimum_amount:
-                raise IutNotAvailable(self.identity.to_string())
-            if len(iuts) > maximum_amount:
+            execution_spaces = self.build_execution_spaces(response)
+            if len(execution_spaces) < minimum_amount:
+                raise ExecutionSpaceNotAvailable(self.id)
+            if len(execution_spaces) > maximum_amount:
                 self.logger.warning(
-                    "Too many IUTs from external IUT provider %r. (Expected: %d, Got %d)",
+                    "Too many execution spaces from external execution space provider "
+                    "%r. (Expected: %d, Got %d)",
                     self.id,
                     maximum_amount,
-                    len(iuts),
+                    len(execution_spaces),
                 )
-                extra = iuts[maximum_amount:]
-                iuts = iuts[:maximum_amount]
-                for iut in extra:
-                    self.checkin(iut)
-            self.dataset.add("iuts", deepcopy(iuts))
+                extra = execution_spaces[maximum_amount:]
+                execution_spaces = execution_spaces[:maximum_amount]
+                for execution_space in extra:
+                    self.checkin(execution_space)
+            self.dataset.add("execution_spaces", deepcopy(execution_spaces))
         except:  # pylint:disable=bare-except
             self.checkin_all()
             raise
-        return iuts
-
-    # Compatibility with the JSONTas providers.
-    wait_for_and_checkout_iuts = request_and_wait_for_iuts
+        return execution_spaces

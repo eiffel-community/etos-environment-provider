@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""External Execution Space provider."""
+"""External log area provider."""
 from json.decoder import JSONDecodeError
 import time
 import logging
@@ -21,16 +21,16 @@ from copy import deepcopy
 
 import requests
 
-from .exceptions import (
-    ExecutionSpaceCheckinFailed,
-    ExecutionSpaceCheckoutFailed,
-    ExecutionSpaceNotAvailable,
+from ..exceptions import (
+    LogAreaCheckinFailed,
+    LogAreaCheckoutFailed,
+    LogAreaNotAvailable,
 )
-from .execution_space import ExecutionSpace
+from ..log_area import LogArea
 
 
-class ExternalExecutionSpaceProvider:
-    """An Execution space provider facility for getting Execution spaces from an external source.
+class ExternalProvider:
+    """A log area provider facility for getting log areas from an external source.
 
     The ruleset must provide this structure:
 
@@ -47,69 +47,61 @@ class ExternalExecutionSpaceProvider:
     }
     """
 
-    logger = logging.getLogger("External ExecutionSpaceProvider")
+    logger = logging.getLogger("External LogAreaProvider")
 
     def __init__(self, etos, jsontas, ruleset):
-        """Initialize Execution Space provider.
+        """Initialize log area provider.
 
         :param etos: ETOS library instance.
         :type etos: :obj:`etos_lib.etos.Etos`
         :param jsontas: JSONTas instance used to evaluate the rulesets.
         :type jsontas: :obj:`jsontas.jsontas.JsonTas`
-        :param ruleset: JSONTas ruleset for handling execution spaces.
+        :param ruleset: JSONTas ruleset for handling log areas.
         :type ruleset: dict
         """
         self.etos = etos
-        self.etos.config.set("execution_spaces", [])
+        self.etos.config.set("logs", [])
         self.dataset = jsontas.dataset
         self.ruleset = ruleset
         self.id = self.ruleset.get("id")  # pylint:disable=invalid-name
-        self.logger.info("Initialized external execution space provider %r", self.id)
+        self.logger.info("Initialized external log area provider %r", self.id)
 
     @property
     def identity(self):
-        """IUT Identity.
+        """IUT identity.
 
         :return: IUT identity as PURL object.
         :rtype: :obj:`packageurl.PackageURL`
         """
         return self.dataset.get("identity")
 
-    def checkin(self, execution_space):
-        """Check in execution spaces.
+    def checkin(self, log_area):
+        """Check in log areas.
 
-        :param execution_space: Execution space to checkin.
-        :type execution_space:
-            :obj:`environment_provider.execution_space.execution_space.ExecutionSpace` or list
+        :param log_area: Log area to check in.
+        :type log_area: :obj:`environment_provider.logs.log_area.LogArea` or list
         """
-        end = self.etos.config.get("WAIT_FOR_EXECUTION_SPACE_TIMEOUT")
+        end = self.etos.config.get("WAIT_FOR_LOG_AREA_TIMEOUT")
 
-        if not isinstance(execution_space, list):
-            self.logger.debug(
-                "Check in execution space %r (timeout %ds)", execution_space, end
-            )
-            execution_space = [execution_space]
+        if not isinstance(log_area, list):
+            self.logger.debug("Check in log area %r (timeout %ds)", log_area, end)
+            log_area = [log_area]
         else:
-            self.logger.debug(
-                "Check in execution spaces %r (timeout %ds)", execution_space, end
-            )
-        execution_spaces = [
-            execution_space.as_dict for execution_space in execution_space
-        ]
+            self.logger.debug("Check in log areas %r (timeout %ds)", log_area, end)
+        log_areas = [log_area.as_dict for log_area in log_area]
 
         host = self.ruleset.get("stop", {}).get("host")
         timeout = time.time() + end
         while time.time() < timeout:
             time.sleep(2)
             try:
-                response = requests.post(host, json=execution_spaces)
+                response = requests.post(host, json=log_areas)
                 if response.status_code == requests.codes["no_content"]:
                     return
                 response = response.json()
                 if response.get("error") is not None:
-                    raise ExecutionSpaceCheckinFailed(
-                        f"Unable to check in {execution_spaces} "
-                        r"({response.get('error')})"
+                    raise LogAreaCheckinFailed(
+                        f"Unable to check in {log_areas} " r"({response.get('error')})"
                     )
             except ConnectionError:
                 self.logger.error("Error connecting to %r", host)
@@ -117,24 +109,24 @@ class ExternalExecutionSpaceProvider:
         raise TimeoutError(f"Unable to stop external provider {self.id!r}")
 
     def checkin_all(self):
-        """Check in all execution spaces.
+        """Check in all log areas.
 
         This method does the same as 'checkin'. It exists for API consistency.
         """
-        self.logger.debug("Checking in all checked out execution spaces")
-        self.checkin(self.dataset.get("execution_spaces", []))
+        self.logger.debug("Checking in all checked out log areas")
+        self.checkin(self.dataset.get("logs", []))
 
     def start(self, minimum_amount, maximum_amount):
-        """Send a start request to an external execution space provider.
+        """Send a start request to an external log area provider.
 
-        :param minimum_amount: The minimum amount of execution spaces to request.
+        :param minimum_amount: Minimum amount of log areas to request.
         :type minimum_amount: int
-        :param maximum_amount: The maximum amount of execution spaces to request.
+        :param maximum_amount: Maximum amount of log areas to request.
         :type maximum_amount: int
-        :return: The ID of the external execution space provider request.
+        :return: The ID of the external log area provider request.
         :rtype: str
         """
-        self.logger.debug("Start external execution space provider")
+        self.logger.debug("Start external log area provider")
         data = {
             "minimum_amount": minimum_amount,
             "maximum_amount": maximum_amount,
@@ -164,20 +156,20 @@ class ExternalExecutionSpaceProvider:
         raise TimeoutError(f"Unable to start external provider {self.id!r}")
 
     def wait(self, provider_id):
-        """Wait for external execution space provider to finish its request.
+        """Wait for external log area provider to finish its request.
 
-        :param provider_id: The ID of the external execution space provider request.
+        :param provider_id: The ID of the external log area provider request.
         :type provider_id: str
-        :return: The response from the external execution space provider.
+        :return: The response from the external log area provider.
         :rtype: dict
         """
         self.logger.debug(
-            "Waiting for external execution space provider (%ds timeout)",
-            self.etos.config.get("WAIT_FOR_EXECUTION_SPACE_TIMEOUT"),
+            "Waiting for external log area provider (%ds timeout)",
+            self.etos.config.get("WAIT_FOR_LOG_AREA_TIMEOUT"),
         )
 
         host = self.ruleset.get("status", {}).get("host")
-        timeout = time.time() + self.etos.config.get("WAIT_FOR_EXECUTION_SPACE_TIMEOUT")
+        timeout = time.time() + self.etos.config.get("WAIT_FOR_LOG_AREA_TIMEOUT")
 
         response = None
         while time.time() < timeout:
@@ -191,23 +183,23 @@ class ExternalExecutionSpaceProvider:
                 continue
 
             if response.get("status") == "FAILED":
-                raise ExecutionSpaceCheckoutFailed(response.get("description"))
+                raise LogAreaCheckoutFailed(response.get("description"))
             if response.get("status") == "DONE":
                 break
         else:
             raise TimeoutError(
                 "Status request timed out after "
-                f"{self.etos.config.get('WAIT_FOR_EXECUTION_SPACE_TIMEOUT')}s"
+                f"{self.etos.config.get('WAIT_FOR_LOG_AREA_TIMEOUT')}s"
             )
         return response
 
     def check_error(self, response):
         """Check response for errors and try to translate them to something usable.
 
-        :param response: The response from the external execution space provider.
+        :param response: The response from the external log area provider.
         :type response: dict
         """
-        self.logger.debug("Checking response from external execution space provider")
+        self.logger.debug("Checking response from external log area provider")
         try:
             if response.json().get("error") is not None:
                 self.logger.error(response.json().get("error"))
@@ -215,66 +207,63 @@ class ExternalExecutionSpaceProvider:
             self.logger.error("Could not parse response as JSON")
 
         if response.status_code == requests.codes["not_found"]:
-            raise ExecutionSpaceNotAvailable(
+            raise LogAreaNotAvailable(
                 f"External provider {self.id!r} did not respond properly"
             )
         if response.status_code == requests.codes["bad_request"]:
             raise RuntimeError(
-                f"Execution space provider for {self.id!r} is not properly configured"
+                f"Log area provider for {self.id!r} is not properly configured"
             )
 
         # This should work, no other errors found.
         # If this does not work, propagate JSONDecodeError up the stack.
         self.logger.debug("Status for response %r", response.json().get("status"))
 
-    def build_execution_spaces(self, response):
-        """Build execution space objects from external execution space provider response.
+    def build_log_areas(self, response):
+        """Build log area objects from external log area provider response.
 
-        :param response: The response from the external execution space provider.
+        :param response: The response from the external log area provider.
         :type response: dict
-        :return: A list of execution spaces.
+        :return: A list of log areas.
         :rtype: list
         """
         return [
-            ExecutionSpace(provider_id=self.id, **execution_space)
-            for execution_space in response.get("execution_spaces", [])
+            LogArea(provider_id=self.id, **log_area)
+            for log_area in response.get("log_areas", [])
         ]
 
-    def request_and_wait_for_execution_spaces(
-        self, minimum_amount=0, maximum_amount=100
-    ):
-        """Wait for execution spaces from an external execution space provider.
+    def request_and_wait_for_log_areas(self, minimum_amount=0, maximum_amount=100):
+        """Wait for log areas from an external log area provider.
 
-        :raises: ExecutionSpaceNotAvailable: If there are no available execution spaces after
-                                             timeout.
+        :raises: LogAreaNotAvailable: If there are not available log areas after timeout.
 
-        :param minimum_amount: Minimum amount of execution spaces to checkout.
+        :param minimum_amount: Minimum amount of log areas to checkout.
         :type minimum_amount: int
-        :param maximum_amount: Maximum amount of execution spaces to checkout.
+        :param maximum_amount: Maximum amount of log areas to checkout.
         :type maximum_amount: int
-        :return: List of checked out execution spaces.
+        :return: List of checked out log areas.
         :rtype: list
         """
         try:
             provider_id = self.start(minimum_amount, maximum_amount)
             response = self.wait(provider_id)
-            execution_spaces = self.build_execution_spaces(response)
-            if len(execution_spaces) < minimum_amount:
-                raise ExecutionSpaceNotAvailable(self.id)
-            if len(execution_spaces) > maximum_amount:
+            log_areas = self.build_log_areas(response)
+            if len(log_areas) < minimum_amount:
+                raise LogAreaNotAvailable(self.id)
+            if len(log_areas) > maximum_amount:
                 self.logger.warning(
-                    "Too many execution spaces from external execution space provider "
+                    "Too many log areas from external log area provider "
                     "%r. (Expected: %d, Got %d)",
                     self.id,
                     maximum_amount,
-                    len(execution_spaces),
+                    len(log_areas),
                 )
-                extra = execution_spaces[maximum_amount:]
-                execution_spaces = execution_spaces[:maximum_amount]
-                for execution_space in extra:
-                    self.checkin(execution_space)
-            self.dataset.add("execution_spaces", deepcopy(execution_spaces))
+                extra = log_areas[maximum_amount:]
+                log_areas = log_areas[:maximum_amount]
+                for log_area in extra:
+                    self.checkin(log_area)
+            self.dataset.add("logs", deepcopy(log_areas))
         except:  # pylint:disable=bare-except
             self.checkin_all()
             raise
-        return execution_spaces
+        return log_areas

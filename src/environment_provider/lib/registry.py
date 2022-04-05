@@ -19,16 +19,13 @@ import logging
 from collections import OrderedDict
 import jsonschema
 
-from execution_space_provider import EXECUTION_SPACE_PROVIDER_SCHEMA
-from execution_space_provider.execution_space_provider import (
+from execution_space_provider import (
     ExecutionSpaceProvider,
+    execution_space_provider_schema,
 )
-from iut_provider import IUT_PROVIDER_SCHEMA, EXTERNAL_IUT_PROVIDER_SCHEMA
-from iut_provider.iut_provider import IutProvider
-from iut_provider.external_iut_provider import ExternalIutProvider
+from iut_provider import IutProvider, iut_provider_schema
 
-from log_area_provider import LOG_AREA_PROVIDER_SCHEMA
-from log_area_provider.log_area_provider import LogAreaProvider
+from log_area_provider import LogAreaProvider, log_area_provider_schema
 
 
 class ProviderRegistry:
@@ -156,7 +153,7 @@ class ProviderRegistry:
         :param ruleset: Log area JSON definition to register.
         :type ruleset: dict
         """
-        data = self.validate(ruleset, LOG_AREA_PROVIDER_SCHEMA)
+        data = self.validate(ruleset, log_area_provider_schema(ruleset))
         self.logger.info("Registering %r", data)
         self.database.writer.hdel(
             "EnvironmentProvider:LogAreaProviders", data["log"]["id"]
@@ -171,11 +168,7 @@ class ProviderRegistry:
         :param ruleset: IUT provider JSON definition to register.
         :type ruleset: dict
         """
-        if ruleset.get("iut", {}).get("type", "jsontas") == "external":
-            schema = EXTERNAL_IUT_PROVIDER_SCHEMA
-        else:
-            schema = IUT_PROVIDER_SCHEMA
-        data = self.validate(ruleset, schema)
+        data = self.validate(ruleset, iut_provider_schema(ruleset))
         self.logger.info("Registering %r", data)
         self.database.writer.hdel("EnvironmentProvider:IUTProviders", data["iut"]["id"])
         self.database.writer.hset(
@@ -188,7 +181,7 @@ class ProviderRegistry:
         :param ruleset: Execution space provider JSON definition to register.
         :type ruleset: dict
         """
-        data = self.validate(ruleset, EXECUTION_SPACE_PROVIDER_SCHEMA)
+        data = self.validate(ruleset, execution_space_provider_schema(ruleset))
         self.logger.info("Registering %r", data)
         self.database.writer.hdel(
             "EnvironmentProvider:ExecutionSpaceProviders", data["execution_space"]["id"]
@@ -237,14 +230,7 @@ class ProviderRegistry:
         self.logger.info(provider_str)
         if provider_str:
             provider_json = json.loads(provider_str, object_pairs_hook=OrderedDict)
-            if provider_json.get("iut").get("type", "jsontas") == "external":
-                provider = ExternalIutProvider(
-                    self.etos, self.jsontas, provider_json.get("iut")
-                )
-            else:
-                provider = IutProvider(
-                    self.etos, self.jsontas, provider_json.get("iut")
-                )
+            provider = IutProvider(self.etos, self.jsontas, provider_json.get("iut"))
             self.etos.config.get("PROVIDERS").append(provider)
             return provider
         return None

@@ -15,7 +15,25 @@
 # limitations under the License.
 """ETOS execution space provider module."""
 import pathlib
+from .execution_space_provider import ExecutionSpaceProvider
+
+__all__ = ["ExecutionSpaceProvider", "execution_space_provider_schema"]
 
 EXECUTION_SPACE_PROVIDER_SCHEMA = (
-    pathlib.Path(__file__).parent.resolve().joinpath("./execution_space_schema.json")
+    pathlib.Path(__file__).parent.resolve().joinpath("./schemas/jsontas_schema.json")
 )
+EXTERNAL_EXECUTION_SPACE_PROVIDER_SCHEMA = (
+    pathlib.Path(__file__).parent.resolve().joinpath("./schemas/external_schema.json")
+)
+
+
+def execution_space_provider_schema(ruleset):
+    """Get execution space provider schema for json validation.
+
+    :param ruleset: Ruleset to get an execution space provider schema for.
+    :type ruleset: dict
+    """
+    if ruleset.get("execution_space", {}).get("type", "jsontas") == "external":
+        return EXTERNAL_EXECUTION_SPACE_PROVIDER_SCHEMA
+    else:
+        return EXECUTION_SPACE_PROVIDER_SCHEMA

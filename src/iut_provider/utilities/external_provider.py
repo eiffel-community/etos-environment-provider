@@ -13,24 +13,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""External log area provider."""
+"""IUT provider for external providers."""
+import os
 from json.decoder import JSONDecodeError
 import time
 import logging
 from copy import deepcopy
 
 import requests
+from packageurl import PackageURL
 
-from .exceptions import (
-    LogAreaCheckinFailed,
-    LogAreaCheckoutFailed,
-    LogAreaNotAvailable,
+from ..exceptions import (
+    IutCheckinFailed,
+    IutCheckoutFailed,
+    IutNotAvailable,
 )
-from .log_area import LogArea
+from ..iut import Iut
 
 
-class ExternalLogAreaProvider:
-    """A log area provider facility for getting log areas from an external source.
+class ExternalProvider:
+    """A generic IUT provider facility for getting IUTs from an external source.
 
     The ruleset must provide this structure:
 
@@ -47,61 +49,69 @@ class ExternalLogAreaProvider:
     }
     """
 
-    logger = logging.getLogger("External LogAreaProvider")
+    logger = logging.getLogger("External IUTProvider")
 
     def __init__(self, etos, jsontas, ruleset):
-        """Initialize log area provider.
+        """Initialize IUT provider.
 
         :param etos: ETOS library instance.
         :type etos: :obj:`etos_lib.etos.Etos`
         :param jsontas: JSONTas instance used to evaluate the rulesets.
         :type jsontas: :obj:`jsontas.jsontas.JsonTas`
-        :param ruleset: JSONTas ruleset for handling log areas.
+        :param ruleset: JSONTas ruleset for handling IUTs.
         :type ruleset: dict
         """
         self.etos = etos
-        self.etos.config.set("logs", [])
+        self.etos.config.set("iuts", [])
         self.dataset = jsontas.dataset
         self.ruleset = ruleset
         self.id = self.ruleset.get("id")  # pylint:disable=invalid-name
-        self.logger.info("Initialized external log area provider %r", self.id)
+        self.identifier = self.etos.config.get("SUITE_ID")
+        self.logger.info("Initialized external IUT provider %r", self.id)
 
     @property
     def identity(self):
-        """IUT identity.
+        """IUT Identity.
 
         :return: IUT identity as PURL object.
         :rtype: :obj:`packageurl.PackageURL`
         """
         return self.dataset.get("identity")
 
-    def checkin(self, log_area):
-        """Check in log areas.
+    def checkin(self, iut):
+        """Check in IUTs.
 
-        :param log_area: Log area to check in.
-        :type log_area: :obj:`environment_provider.logs.log_area.LogArea` or list
+        :param iut: IUT to checkin.
+        :type iut: :obj:`environment_provider.iut.iut.Iut` or list
         """
-        end = self.etos.config.get("WAIT_FOR_LOG_AREA_TIMEOUT")
+        end = self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
+        if end is None:
+            end = os.getenv("ENVIRONMENT_PROVIDER_WAIT_FOR_IUT_TIMEOUT")
+        if end is None:
+            end = 3600
+        end = int(end)
 
-        if not isinstance(log_area, list):
-            self.logger.debug("Check in log area %r (timeout %ds)", log_area, end)
-            log_area = [log_area]
+        if not isinstance(iut, list):
+            self.logger.debug("Check in IUT %r (timeout %ds)", iut, end)
+            iut = [iut]
         else:
-            self.logger.debug("Check in log areas %r (timeout %ds)", log_area, end)
-        log_areas = [log_area.as_dict for log_area in log_area]
+            self.logger.debug("Check in IUTs %r (timeout %ds)", iut, end)
+        iuts = [iut.as_dict for iut in iut]
 
         host = self.ruleset.get("stop", {}).get("host")
         timeout = time.time() + end
         while time.time() < timeout:
             time.sleep(2)
             try:
-                response = requests.post(host, json=log_areas)
+                response = requests.post(
+                    host, json=iuts, headers={"X-ETOS-ID": self.identifier}
+                )
                 if response.status_code == requests.codes["no_content"]:
                     return
                 response = response.json()
                 if response.get("error") is not None:
-                    raise LogAreaCheckinFailed(
-                        f"Unable to check in {log_areas} " r"({response.get('error')})"
+                    raise IutCheckinFailed(
+                        f"Unable to check in {iuts} ({response.get('error')})"
                     )
             except ConnectionError:
                 self.logger.error("Error connecting to %r", host)
@@ -109,24 +119,24 @@ class ExternalLogAreaProvider:
         raise TimeoutError(f"Unable to stop external provider {self.id!r}")
 
     def checkin_all(self):
-        """Check in all log areas.
+        """Check in all IUTs.
 
         This method does the same as 'checkin'. It exists for API consistency.
         """
-        self.logger.debug("Checking in all checked out log areas")
-        self.checkin(self.dataset.get("logs", []))
+        self.logger.debug("Checking in all checked out IUTs")
+        self.checkin(self.dataset.get("iuts", []))
 
     def start(self, minimum_amount, maximum_amount):
-        """Send a start request to an external log area provider.
+        """Send a start request to an external IUT provider.
 
-        :param minimum_amount: Minimum amount of log areas to request.
+        :param minimum_amount: The minimum amount of IUTs to request.
         :type minimum_amount: int
-        :param maximum_amount: Maximum amount of log areas to request.
+        :param maximum_amount: The maximum amount of IUTs to request.
         :type maximum_amount: int
-        :return: The ID of the external log area provider request.
+        :return: The ID of the external IUT provider request.
         :rtype: str
         """
-        self.logger.debug("Start external log area provider")
+        self.logger.debug("Start external IUT provider")
         data = {
             "minimum_amount": minimum_amount,
             "maximum_amount": maximum_amount,
@@ -142,6 +152,7 @@ class ExternalLogAreaProvider:
             "POST",
             self.ruleset.get("start", {}).get("host"),
             json=data,
+            headers={"X-ETOS-ID": self.identifier},
         )
         try:
             for response in response_iterator:
@@ -156,26 +167,30 @@ class ExternalLogAreaProvider:
         raise TimeoutError(f"Unable to start external provider {self.id!r}")
 
     def wait(self, provider_id):
-        """Wait for external log area provider to finish its request.
+        """Wait for external IUT provider to finish its request.
 
-        :param provider_id: The ID of the external log area provider request.
+        :param provider_id: The ID of the external IUT provider request.
         :type provider_id: str
-        :return: The response from the external log area provider.
+        :return: The response from the external IUT provider.
         :rtype: dict
         """
         self.logger.debug(
-            "Waiting for external log area provider (%ds timeout)",
-            self.etos.config.get("WAIT_FOR_LOG_AREA_TIMEOUT"),
+            "Waiting for external IUT provider (%ds timeout)",
+            self.etos.config.get("WAIT_FOR_IUT_TIMEOUT"),
         )
 
         host = self.ruleset.get("status", {}).get("host")
-        timeout = time.time() + self.etos.config.get("WAIT_FOR_LOG_AREA_TIMEOUT")
+        timeout = time.time() + self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
 
         response = None
         while time.time() < timeout:
             time.sleep(2)
             try:
-                response = requests.get(host, params={"id": provider_id})
+                response = requests.get(
+                    host,
+                    params={"id": provider_id},
+                    headers={"X-ETOS-ID": self.identifier},
+                )
                 self.check_error(response)
                 response = response.json()
             except ConnectionError:
@@ -183,23 +198,22 @@ class ExternalLogAreaProvider:
                 continue
 
             if response.get("status") == "FAILED":
-                raise LogAreaCheckoutFailed(response.get("description"))
+                raise IutCheckoutFailed(response.get("description"))
             if response.get("status") == "DONE":
                 break
         else:
             raise TimeoutError(
-                "Status request timed out after "
-                f"{self.etos.config.get('WAIT_FOR_LOG_AREA_TIMEOUT')}s"
+                f"Status request timed out after {self.etos.config.get('WAIT_FOR_IUT_TIMEOUT')}s"
             )
         return response
 
     def check_error(self, response):
         """Check response for errors and try to translate them to something usable.
 
-        :param response: The response from the external log area provider.
+        :param response: The response from the external IUT provider.
         :type response: dict
         """
-        self.logger.debug("Checking response from external log area provider")
+        self.logger.debug("Checking response from external IUT provider")
         try:
             if response.json().get("error") is not None:
                 self.logger.error(response.json().get("error"))
@@ -207,63 +221,69 @@ class ExternalLogAreaProvider:
             self.logger.error("Could not parse response as JSON")
 
         if response.status_code == requests.codes["not_found"]:
-            raise LogAreaNotAvailable(
+            raise IutNotAvailable(
                 f"External provider {self.id!r} did not respond properly"
             )
         if response.status_code == requests.codes["bad_request"]:
             raise RuntimeError(
-                f"Log area provider for {self.id!r} is not properly configured"
+                f"IUT provider for {self.id!r} is not properly configured"
             )
 
         # This should work, no other errors found.
         # If this does not work, propagate JSONDecodeError up the stack.
         self.logger.debug("Status for response %r", response.json().get("status"))
 
-    def build_log_areas(self, response):
-        """Build log area objects from external log area provider response.
+    def build_iuts(self, response):
+        """Build IUT objects from external IUT provider response.
 
-        :param response: The response from the external log area provider.
+        :param response: The response from the external IUT provider.
         :type response: dict
-        :return: A list of log areas.
+        :return: A list of IUTs.
         :rtype: list
         """
-        return [
-            LogArea(provider_id=self.id, **log_area)
-            for log_area in response.get("log_areas", [])
-        ]
+        iuts = []
+        for iut in response.get("iuts", []):
+            if iut.get("identity") is None:
+                iut["identity"] = self.identity
+            else:
+                iut["identity"] = PackageURL.from_string(iut.get("identity"))
+            iuts.append(Iut(provider_id=self.id, **iut))
+        return iuts
 
-    def request_and_wait_for_log_areas(self, minimum_amount=0, maximum_amount=100):
-        """Wait for log areas from an external log area provider.
+    def request_and_wait_for_iuts(self, minimum_amount=0, maximum_amount=100):
+        """Wait for IUTs from an external IUT provider.
 
-        :raises: LogAreaNotAvailable: If there are not available log areas after timeout.
+        :raises: IutNotAvailable: If there are no available IUTs.
 
-        :param minimum_amount: Minimum amount of log areas to checkout.
+        :param minimum_amount: Minimum amount of IUTs to checkout.
         :type minimum_amount: int
-        :param maximum_amount: Maximum amount of log areas to checkout.
+        :param maximum_amount: Maximum amount of IUTs to checkout.
         :type maximum_amount: int
-        :return: List of checked out log areas.
+        :return: List of checked out IUTs.
         :rtype: list
         """
         try:
             provider_id = self.start(minimum_amount, maximum_amount)
             response = self.wait(provider_id)
-            log_areas = self.build_log_areas(response)
-            if len(log_areas) < minimum_amount:
-                raise LogAreaNotAvailable(self.id)
-            if len(log_areas) > maximum_amount:
+            iuts = self.build_iuts(response)
+            if len(iuts) < minimum_amount:
+                raise IutNotAvailable(self.identity.to_string())
+            if len(iuts) > maximum_amount:
                 self.logger.warning(
-                    "Too many log areas from external log area provider "
-                    "%r. (Expected: %d, Got %d)",
+                    "Too many IUTs from external IUT provider %r. (Expected: %d, Got %d)",
                     self.id,
                     maximum_amount,
-                    len(log_areas),
+                    len(iuts),
                 )
-                extra = log_areas[maximum_amount:]
-                log_areas = log_areas[:maximum_amount]
-                for log_area in extra:
-                    self.checkin(log_area)
-            self.dataset.add("logs", deepcopy(log_areas))
+                extra = iuts[maximum_amount:]
+                iuts = iuts[:maximum_amount]
+                for iut in extra:
+                    self.checkin(iut)
+            self.dataset.add("iuts", deepcopy(iuts))
         except:  # pylint:disable=bare-except
             self.checkin_all()
             raise
-        return log_areas
+        return iuts
+
+    # Compatibility with the JSONTas providers.
+    wait_for_and_checkout_iuts = request_and_wait_for_iuts

@@ -15,10 +15,25 @@
 # limitations under the License.
 """ETOS IUT provider module."""
 import pathlib
+from .iut_provider import IutProvider
+
+__all__ = ["IutProvider", "iut_provider_schema"]
 
 IUT_PROVIDER_SCHEMA = (
-    pathlib.Path(__file__).parent.resolve().joinpath("./iut_schema.json")
+    pathlib.Path(__file__).parent.resolve().joinpath("./schemas/jsontas_schema.json")
 )
 EXTERNAL_IUT_PROVIDER_SCHEMA = (
-    pathlib.Path(__file__).parent.resolve().joinpath("./external_iut_schema.json")
+    pathlib.Path(__file__).parent.resolve().joinpath("./schemas/external_schema.json")
 )
+
+
+def iut_provider_schema(ruleset):
+    """Get IUT provider schema for json validation.
+
+    :param ruleset: Ruleset to get an IUT provider schema for.
+    :type ruleset: dict
+    """
+    if ruleset.get("iut", {}).get("type", "jsontas") == "external":
+        return EXTERNAL_IUT_PROVIDER_SCHEMA
+    else:
+        return IUT_PROVIDER_SCHEMA

@@ -24,7 +24,7 @@ from packageurl import PackageURL
 
 from tests.library.fake_server import FakeServer
 
-from iut_provider.external_iut_provider import ExternalIutProvider
+from iut_provider.utilities.external_provider import ExternalProvider
 from iut_provider.exceptions import (
     IutCheckinFailed,
     IutCheckoutFailed,
@@ -71,7 +71,7 @@ class TestExternalIUT(unittest.TestCase):
         with FakeServer("ok", {"id": expected_start_id}) as server:
             ruleset = {"id": "test_provider_start", "start": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
-            provider = ExternalIutProvider(etos, jsontas, ruleset)
+            provider = ExternalProvider(etos, jsontas, ruleset)
             self.logger.info("STEP: Send a start request.")
             start_id = provider.start(1, 2)
             self.logger.info(
@@ -113,7 +113,7 @@ class TestExternalIUT(unittest.TestCase):
                 "start": {"host": server.host},
             }
             self.logger.info("STEP: Initialize an external provider.")
-            provider = ExternalIutProvider(etos, jsontas, ruleset)
+            provider = ExternalProvider(etos, jsontas, ruleset)
             self.logger.info("STEP: Send a start request that fails.")
             start_id = provider.start(1, 2)
             self.logger.info(
@@ -154,7 +154,7 @@ class TestExternalIUT(unittest.TestCase):
                 "start": {"host": server.host},
             }
             self.logger.info("STEP: Initialize an external provider.")
-            provider = ExternalIutProvider(etos, jsontas, ruleset)
+            provider = ExternalProvider(etos, jsontas, ruleset)
             self.logger.info("STEP: Send a start request which will never finish.")
 
             with self.assertRaises(TimeoutError):
@@ -193,7 +193,7 @@ class TestExternalIUT(unittest.TestCase):
         with FakeServer("no_content", {}) as server:
             ruleset = {"id": "test_provider_stop", "stop": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
-            provider = ExternalIutProvider(etos, jsontas, ruleset)
+            provider = ExternalProvider(etos, jsontas, ruleset)
             self.logger.info("STEP: Send a stop request for a single IUT.")
             provider.checkin(iut)
             self.logger.info("STEP: Verify that the stop endpoint is called.")
@@ -232,7 +232,7 @@ class TestExternalIUT(unittest.TestCase):
         with FakeServer("no_content", {}) as server:
             ruleset = {"id": "test_provider_stop_many", "stop": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
-            provider = ExternalIutProvider(etos, jsontas, ruleset)
+            provider = ExternalProvider(etos, jsontas, ruleset)
             self.logger.info("STEP: Send a stop request for multiple IUTs.")
             provider.checkin_all()
             self.logger.info("STEP: Verify that the stop endpoint is called.")
@@ -269,7 +269,7 @@ class TestExternalIUT(unittest.TestCase):
         with FakeServer("bad_request", {"error": "no"}) as server:
             ruleset = {"id": "test_provider_stop_failed", "stop": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
-            provider = ExternalIutProvider(etos, jsontas, ruleset)
+            provider = ExternalProvider(etos, jsontas, ruleset)
             self.logger.info("STEP: Send a stop request that fails.")
             with self.assertRaises(IutCheckinFailed):
                 self.logger.info(
@@ -309,7 +309,7 @@ class TestExternalIUT(unittest.TestCase):
                 "stop": {"host": server.host},
             }
             self.logger.info("STEP: Initialize an external provider.")
-            provider = ExternalIutProvider(etos, jsontas, ruleset)
+            provider = ExternalProvider(etos, jsontas, ruleset)
             self.logger.info("STEP: Send a stop request that fails.")
             with self.assertRaises(TimeoutError):
                 self.logger.info(
@@ -346,7 +346,7 @@ class TestExternalIUT(unittest.TestCase):
         with FakeServer("ok", {"status": "DONE", "test_id": test_id}) as server:
             ruleset = {"id": "test_provider_status", "status": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
-            provider = ExternalIutProvider(etos, jsontas, ruleset)
+            provider = ExternalProvider(etos, jsontas, ruleset)
             self.logger.info("STEP: Send a status request for a started IUT provider.")
             response = provider.wait("1")
             self.logger.info(
@@ -386,7 +386,7 @@ class TestExternalIUT(unittest.TestCase):
                 "status": {"host": server.host},
             }
             self.logger.info("STEP: Initialize an external provider.")
-            provider = ExternalIutProvider(etos, jsontas, ruleset)
+            provider = ExternalProvider(etos, jsontas, ruleset)
             self.logger.info("STEP: Send a status request for a started IUT provider.")
             provider.wait("1")
             self.logger.info("STEP: Verify that the wait method waits on PENDING.")
@@ -426,7 +426,7 @@ class TestExternalIUT(unittest.TestCase):
                 "status": {"host": server.host},
             }
             self.logger.info("STEP: Initialize an external provider.")
-            provider = ExternalIutProvider(etos, jsontas, ruleset)
+            provider = ExternalProvider(etos, jsontas, ruleset)
             self.logger.info("STEP: Send a status request for a started IUT provider.")
             with self.assertRaises(IutCheckoutFailed):
                 self.logger.info(
@@ -472,7 +472,7 @@ class TestExternalIUT(unittest.TestCase):
                     "status": {"host": server.host},
                 }
                 self.logger.info("STEP: Initialize an external provider.")
-                provider = ExternalIutProvider(etos, jsontas, ruleset)
+                provider = ExternalProvider(etos, jsontas, ruleset)
                 self.logger.info(
                     "STEP: Send a status request for a started IUT provider."
                 )
@@ -513,7 +513,7 @@ class TestExternalIUT(unittest.TestCase):
                 "status": {"host": server.host},
             }
             self.logger.info("STEP: Initialize an external provider.")
-            provider = ExternalIutProvider(etos, jsontas, ruleset)
+            provider = ExternalProvider(etos, jsontas, ruleset)
             self.logger.info("STEP: Send a status request that times out.")
             with self.assertRaises(TimeoutError):
                 self.logger.info(
@@ -564,7 +564,7 @@ class TestExternalIUT(unittest.TestCase):
                 "stop": {"host": server.host},
             }
             self.logger.info("STEP: Initialize an external provider.")
-            provider = ExternalIutProvider(etos, jsontas, ruleset)
+            provider = ExternalProvider(etos, jsontas, ruleset)
             self.logger.info(
                 "STEP: Send a checkout request via the external IUT provider."
             )

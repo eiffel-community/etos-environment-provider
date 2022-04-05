@@ -15,7 +15,25 @@
 # limitations under the License.
 """ETOS log area provider module."""
 import pathlib
+from .log_area_provider import LogAreaProvider
+
+__all__ = ["LogAreaProvider", "log_area_provider_schema"]
 
 LOG_AREA_PROVIDER_SCHEMA = (
-    pathlib.Path(__file__).parent.resolve().joinpath("./log_area_schema.json")
+    pathlib.Path(__file__).parent.resolve().joinpath("./schemas/jsontas_schema.json")
 )
+EXTERNAL_LOG_AREA_PROVIDER_SCHEMA = (
+    pathlib.Path(__file__).parent.resolve().joinpath("./schemas/external_schema.json")
+)
+
+
+def log_area_provider_schema(ruleset):
+    """Get log area provider schema for json validation.
+
+    :param ruleset: Ruleset to get a log area provider schema for.
+    :type ruleset: dict
+    """
+    if ruleset.get("log", {}).get("type", "jsontas") == "external":
+        return EXTERNAL_LOG_AREA_PROVIDER_SCHEMA
+    else:
+        return LOG_AREA_PROVIDER_SCHEMA
