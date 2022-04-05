@@ -98,8 +98,12 @@ class JSONTasProvider:
         :rtype: list
         """
         timeout = time.time() + self.etos.config.get("WAIT_FOR_LOG_AREA_TIMEOUT")
+        first_iteration = True
         while time.time() < timeout:
-            time.sleep(5)
+            if first_iteration:
+                first_iteration = False
+            else:
+                time.sleep(5)
             try:
                 available_log_areas = self.list(maximum_amount)
                 self.logger.info("Available log areas:")

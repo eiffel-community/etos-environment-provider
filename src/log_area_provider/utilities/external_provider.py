@@ -99,8 +99,12 @@ class ExternalProvider:
 
         host = self.ruleset.get("stop", {}).get("host")
         timeout = time.time() + end
+        first_iteration = True
         while time.time() < timeout:
-            time.sleep(2)
+            if first_iteration:
+                first_iteration = False
+            else:
+                time.sleep(2)
             try:
                 response = requests.post(
                     host, json=log_areas, headers={"X-ETOS-ID": self.identifier}
@@ -182,8 +186,12 @@ class ExternalProvider:
         timeout = time.time() + self.etos.config.get("WAIT_FOR_LOG_AREA_TIMEOUT")
 
         response = None
+        first_iteration = True
         while time.time() < timeout:
-            time.sleep(2)
+            if first_iteration:
+                first_iteration = False
+            else:
+                time.sleep(2)
             try:
                 response = requests.get(
                     host,

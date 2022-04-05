@@ -100,8 +100,12 @@ class ExternalProvider:
 
         host = self.ruleset.get("stop", {}).get("host")
         timeout = time.time() + end
+        first_iteration = True
         while time.time() < timeout:
-            time.sleep(2)
+            if first_iteration:
+                first_iteration = False
+            else:
+                time.sleep(2)
             try:
                 response = requests.post(
                     host, json=iuts, headers={"X-ETOS-ID": self.identifier}

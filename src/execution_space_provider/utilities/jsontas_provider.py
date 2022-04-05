@@ -104,8 +104,12 @@ class JSONTasProvider:
         :rtype: list
         """
         timeout = time.time() + self.etos.config.get("WAIT_FOR_EXECUTION_SPACE_TIMEOUT")
+        first_iteration = True
         while time.time() < timeout:
-            time.sleep(5)
+            if first_iteration:
+                first_iteration = False
+            else:
+                time.sleep(5)
             try:
                 available_execution_spaces = self.list(maximum_amount)
                 self.logger.info("Available execution spaces:")

@@ -140,8 +140,12 @@ class JSONTasProvider:
         timeout = time.time() + self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
         last_exception = None
         prepared_iuts = []
+        first_iteration = True
         while time.time() < timeout:
-            time.sleep(5)
+            if first_iteration:
+                first_iteration = False
+            else:
+                time.sleep(5)
             try:
                 available_iuts = self.list(maximum_amount)
                 self.logger.info("Available IUTs:")
