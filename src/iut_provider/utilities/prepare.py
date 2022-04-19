@@ -82,15 +82,15 @@ class Prepare:  # pylint:disable=too-few-public-methods
 
         :param iuts: IUTs to prepare.
         :type iuts: list
-        :return: Prepared IUTs.
-        :rtype: list
+        :return: List of prepared IUTs and a list of IUTs that failed preparation.
+        :rtype: tuple
         """
         iuts = deepcopy(iuts)
         failed_iuts = []
         try:
             if not self.prepare_ruleset:
                 self.logger.info("No defined preparation rule.")
-                return iuts
+                return iuts, []
             thread_pool = ThreadPool()
 
             stages = self.prepare_ruleset.get("stages", {})
