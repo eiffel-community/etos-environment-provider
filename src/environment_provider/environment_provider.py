@@ -121,6 +121,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         )
 
         self.etos.config.rabbitmq_publisher_from_environment()
+        self.etos.start_publisher()
         self.environment_provider_config = Config(self.etos, suite_id)
         if not self.environment_provider_config.generated:
             missing = [
@@ -333,6 +334,23 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             self.logger.error(json_data)
             raise
 
+    def send_environment_events(self, test_suites):
+        """Send environment defined events for the created sub suites.
+
+        :param test_suites: Test suites to send environment defined for.
+        :type test_suites: dict
+        """
+        base_url = os.getenv("ETOS_ENVIRONMENT_PROVIDER")
+        for sub_suite in test_suites.get("suites", []):
+            # In a valid sub suite all of these keys must exist
+            # making this a safe assumption
+            identifier = sub_suite["executor"]["instructions"]["identifier"]
+            self.etos.events.send_environment_defined(
+                sub_suite.get("name"),
+                uri=f"{base_url}/sub_suite?id={identifier}",
+                links={"CONTEXT": self.dataset.get("context")},
+            )
+
     def run(self):
         """Run the environment provider task.
 
@@ -378,6 +396,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 # exception is caught here and not by the webserver.
                 # This makes sure that we can cleanup if anything breaks.
                 self.verify_json(test_suite_json)
+
+                self.send_environment_events(test_suite_json)
 
                 # TODO: Handle multiple test suites.
                 return test_suite_json

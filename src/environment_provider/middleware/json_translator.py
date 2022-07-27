@@ -17,7 +17,6 @@
 import falcon
 
 # pylint: disable=too-few-public-methods
-# pylint: disable=no-self-use
 
 
 class JSONTranslator:
