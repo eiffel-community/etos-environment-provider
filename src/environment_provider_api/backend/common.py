@@ -38,9 +38,5 @@ def get_suite_runner_ids(request):
     :rtype: list
     """
     if request.media is None:
-        param = request.get_param("suite_runner_ids")
-    else:
-        param = request.media.get("suite_runner_ids")
-    if param is None:
-        return param
-    return param.split(",")
+        return request.get_param("suite_runner_ids", "").split(",")
+    return request.media.get("suite_runner_ids", "").split(",")
