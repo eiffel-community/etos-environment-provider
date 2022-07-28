@@ -347,7 +347,6 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         :type test_suites: dict
         """
         base_url = os.getenv("ETOS_ENVIRONMENT_PROVIDER")
-        database = Database(None)  # None = no expiry
         for sub_suite in test_suites.get("sub_suites", []):
             # In a valid sub suite all of these keys must exist
             # making this a safe assumption

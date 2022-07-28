@@ -154,27 +154,37 @@ def release_full_environment(
     failure = None
     for suite in task_result.result.get("suites", {}):
         for sub_suite in suite.get("sub_suites", []):
-            try:
-                identifier = (
-                    f"SubSuite:{sub_suite['executor']['instructions']['identifier']}"
-                )
-            except KeyError:
-                identifier = None
-            if identifier is not None:
-                event_id = provider_registry.database.reader.hget(identifier, "EventID")
-                event_suite = provider_registry.database.reader.hget(
-                    identifier, "Suite"
-                )
-                # Has already been checked in.
-                if not event_suite:
-                    continue
+            etos.config.set("SUITE_ID", sub_suite.get("suite_id"))
+            iut = sub_suite.get("iut")
+            iut_ruleset = provider_registry.get_iut_provider_by_id(
+                iut.get("provider_id")
+            ).get("iut")
+            executor = sub_suite.get("executor")
+            executor_ruleset = provider_registry.get_execution_space_provider_by_id(
+                executor.get("provider_id")
+            ).get("execution_space")
+            log_area = sub_suite.get("log_area")
+            log_area_ruleset = provider_registry.get_log_area_provider_by_id(
+                log_area.get("provider_id")
+            ).get("log")
 
-            failure = release_environment(etos, jsontas, provider_registry, sub_suite)
+            success, exception = checkin_provider(
+                Iut(**iut), IutProvider(etos, jsontas, iut_ruleset)
+            )
+            if not success:
+                failure = exception
 
-            if identifier is not None:
-                provider_registry.database.writer.hdel(identifier, "EventID")
-                provider_registry.database.writer.hdel(identifier, "Suite")
-                provider_registry.database.remove(event_id)
+            success, exception = checkin_provider(
+                LogArea(**log_area), LogAreaProvider(etos, jsontas, log_area_ruleset)
+            )
+            if not success:
+                failure = exception
+            success, exception = checkin_provider(
+                ExecutionSpace(**executor),
+                ExecutionSpaceProvider(etos, jsontas, executor_ruleset),
+            )
+            if not success:
+                failure = exception
     task_result.forget()
     if failure:
         # Return the traceback from exception stored in failure.
