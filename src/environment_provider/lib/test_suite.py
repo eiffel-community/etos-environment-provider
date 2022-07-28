@@ -178,7 +178,7 @@ class TestSuite:
                 )
                 suites.append(sub_suite)
                 counter += 1
-        self._suite = {"suite_name": self.test_suite_name, "suites": suites}
+        self._suite = {"suite_name": self.test_suite_name, "sub_suites": suites}
 
     def to_json(self):
         """Return test suite as a JSON dictionary."""

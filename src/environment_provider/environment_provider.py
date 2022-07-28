@@ -120,8 +120,11 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             int(os.getenv("ETOS_WAIT_FOR_LOG_AREA_TIMEOUT", "10")),
         )
 
+        self.logger.info("Connect to RabbitMQ")
         self.etos.config.rabbitmq_publisher_from_environment()
         self.etos.start_publisher()
+        self.etos.publisher.wait_start()
+
         self.environment_provider_config = Config(self.etos, suite_id)
         if not self.environment_provider_config.generated:
             missing = [
@@ -341,7 +344,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         :type test_suites: dict
         """
         base_url = os.getenv("ETOS_ENVIRONMENT_PROVIDER")
-        for sub_suite in test_suites.get("suites", []):
+        for sub_suite in test_suites.get("sub_suites", []):
             # In a valid sub suite all of these keys must exist
             # making this a safe assumption
             identifier = sub_suite["executor"]["instructions"]["identifier"]
@@ -357,6 +360,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
         :rtype: dict
         """
+        suites = []
         try:
             self.configure(self.suite_id)
             test_suites = self.create_test_suite_dict()
@@ -399,14 +403,15 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
 
                 self.send_environment_events(test_suite_json)
 
-                # TODO: Handle multiple test suites.
-                return test_suite_json
+                suites.append(test_suite_json)
+            return {"suites": suites, "error": None}
         except Exception as exception:  # pylint:disable=broad-except
             self.cleanup()
             traceback.print_exc()
             return {"error": str(exception), "details": traceback.format_exc()}
         finally:
             if self.etos.publisher is not None:
+                self.etos.publisher.wait_for_unpublished_events()
                 self.etos.publisher.stop()
 
 

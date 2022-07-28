@@ -92,38 +92,39 @@ def release_environment(
     if task_result is None or not task_result.result:
         return False, f"Nothing to release with task_id {release_id}"
     failure = None
-    for suite in task_result.result.get("suites", []):
-        etos.config.set("SUITE_ID", suite.get("suite_id"))
-        iut = suite.get("iut")
-        iut_ruleset = provider_registry.get_iut_provider_by_id(
-            iut.get("provider_id")
-        ).get("iut")
-        executor = suite.get("executor")
-        executor_ruleset = provider_registry.get_execution_space_provider_by_id(
-            executor.get("provider_id")
-        ).get("execution_space")
-        log_area = suite.get("log_area")
-        log_area_ruleset = provider_registry.get_log_area_provider_by_id(
-            log_area.get("provider_id")
-        ).get("log")
+    for suite in task_result.result.get("suites", {}):
+        for sub_suite in suite.get("sub_suites", []):
+            etos.config.set("SUITE_ID", sub_suite.get("suite_id"))
+            iut = sub_suite.get("iut")
+            iut_ruleset = provider_registry.get_iut_provider_by_id(
+                iut.get("provider_id")
+            ).get("iut")
+            executor = sub_suite.get("executor")
+            executor_ruleset = provider_registry.get_execution_space_provider_by_id(
+                executor.get("provider_id")
+            ).get("execution_space")
+            log_area = sub_suite.get("log_area")
+            log_area_ruleset = provider_registry.get_log_area_provider_by_id(
+                log_area.get("provider_id")
+            ).get("log")
 
-        success, exception = checkin_provider(
-            Iut(**iut), IutProvider(etos, jsontas, iut_ruleset)
-        )
-        if not success:
-            failure = exception
+            success, exception = checkin_provider(
+                Iut(**iut), IutProvider(etos, jsontas, iut_ruleset)
+            )
+            if not success:
+                failure = exception
 
-        success, exception = checkin_provider(
-            LogArea(**log_area), LogAreaProvider(etos, jsontas, log_area_ruleset)
-        )
-        if not success:
-            failure = exception
-        success, exception = checkin_provider(
-            ExecutionSpace(**executor),
-            ExecutionSpaceProvider(etos, jsontas, executor_ruleset),
-        )
-        if not success:
-            failure = exception
+            success, exception = checkin_provider(
+                LogArea(**log_area), LogAreaProvider(etos, jsontas, log_area_ruleset)
+            )
+            if not success:
+                failure = exception
+            success, exception = checkin_provider(
+                ExecutionSpace(**executor),
+                ExecutionSpaceProvider(etos, jsontas, executor_ruleset),
+            )
+            if not success:
+                failure = exception
     task_result.forget()
     if failure:
         # Return the traceback from exception stored in failure.
