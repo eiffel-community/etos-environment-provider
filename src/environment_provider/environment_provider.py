@@ -56,14 +56,17 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     task_track_started = True  # Make celery task report 'STARTED' state
     lock = Lock()
 
-    def __init__(self, suite_id):
+    def __init__(self, suite_id, suite_runner_ids):
         """Initialize ETOS, dataset, provider registry and splitter.
 
         :param suite_id: Suite ID to get an environment for
         :type suite_id: str
+        :param suite_runner_ids: IDs from the suite runner to correlate sub suites.
+        :type suite_runner_ids: list
         """
         self.suite_id = suite_id
         FORMAT_CONFIG.identifier = suite_id
+        self.suite_runner_ids = suite_runner_ids
         self.logger.info("Initializing EnvironmentProvider task.")
         self.etos = ETOS(
             "ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider"
@@ -393,7 +396,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 # execution spaces and log areas with tests split up over as many as
                 # possible. The resulting test suite definition is further explained in
                 # :obj:`environment_provider.lib.test_suite.TestSuite`
-                test_suite.generate()
+                test_suite.generate(self.suite_runner_ids.pop(0))
                 test_suite_json = test_suite.to_json()
 
                 # Test that the test suite JSON is serializable so that the
@@ -416,13 +419,15 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
 
 
 @APP.task(name="EnvironmentProvider")
-def get_environment(suite_id):
+def get_environment(suite_id, suite_runner_ids):
     """Get an environment for ETOS test executions.
 
     :param suite_id: Suite ID to get an environment for
     :type suite_id: str
+    :param suite_runner_ids: Suite runner correlation IDs.
+    :type suite_runner_ids: list
     :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
     :rtype: dict
     """
-    environment_provider = EnvironmentProvider(suite_id)
+    environment_provider = EnvironmentProvider(suite_id, suite_runner_ids)
     return environment_provider.run()

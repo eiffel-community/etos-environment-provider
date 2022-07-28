@@ -154,12 +154,14 @@ def check_environment_status(celery_worker, environment_id):
     return {"status": status, "result": result}
 
 
-def request_environment(suite_id):
+def request_environment(suite_id, suite_runner_ids):
     """Request an environment for a test suite ID.
 
     :param suite_id: Suite ID to request an environment for.
     :type suite_id: str
+    :param suite_runner_ids: Suite runner correlation IDs.
+    :type suite_runner_ids: list
     :return: The environment ID for the request.
     :rtype: str
     """
-    return get_environment.delay(suite_id).id
+    return get_environment.delay(suite_id, suite_runner_ids).id

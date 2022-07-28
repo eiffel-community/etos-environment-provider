@@ -48,7 +48,7 @@ from environment_provider.backend.configure import (
     get_log_area_provider_id,
 )
 from environment_provider.backend.subsuite import get_sub_suite, get_id
-from environment_provider.backend.common import get_suite_id
+from environment_provider.backend.common import get_suite_id, get_suite_runner_ids
 
 
 class Webserver:
@@ -128,7 +128,7 @@ class Webserver:
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        task_id = request_environment(get_suite_id(request))
+        task_id = request_environment(get_suite_id(request), get_suite_runner_ids(request))
         response.status = falcon.HTTP_200
         response.media = {"result": "success", "data": {"id": task_id}}
 

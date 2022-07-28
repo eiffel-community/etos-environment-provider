@@ -27,3 +27,16 @@ def get_suite_id(request):
     if request.media is None:
         return request.get_param("suite_id")
     return request.media.get("suite_id")
+
+
+def get_suite_runner_ids(request):
+    """Get suite runner IDs from the request.
+
+    :param request: The falcon request object.
+    :type request: :obj:`falcon.request`
+    :return: Suite runner IDs.
+    :rtype: list
+    """
+    if request.media is None:
+        return request.get_param("suite_runner_ids", "").split(",")
+    return request.media.get("suite_runner_ids", "").split(",")
