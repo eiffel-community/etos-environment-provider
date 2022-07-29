@@ -54,8 +54,8 @@ from .backend.configure import (
     get_iut_provider_id,
     get_log_area_provider_id,
 )
-from environment_provider.backend.subsuite import get_sub_suite, get_id
-from environment_provider.backend.common import get_suite_id, get_suite_runner_ids
+from .backend.subsuite import get_sub_suite, get_id
+from .backend.common import get_suite_id, get_suite_runner_ids
 
 
 class Webserver:
