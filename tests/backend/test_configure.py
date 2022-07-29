@@ -22,7 +22,7 @@ import unittest
 from etos_lib import ETOS
 from jsontas.jsontas import JsonTas
 
-from environment_provider.backend.configure import (
+from environment_provider_api.backend.configure import (
     configure,
     get_configuration,
     get_dataset,

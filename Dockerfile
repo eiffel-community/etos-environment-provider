@@ -18,4 +18,4 @@ LABEL org.opencontainers.image.authors=etos-maintainers@googlegroups.com
 LABEL org.opencontainers.image.licenses=Apache-2.0
 
 ENV GUNICORN_CMD_ARGS="--name environment_provider --bind 0.0.0.0:8080 --worker-class gevent --worker-connections 1000 --workers 5"
-ENTRYPOINT ["gunicorn", "environment_provider.webserver:FALCON_APP"]
+ENTRYPOINT ["gunicorn", "environment_provider_api.webserver:FALCON_APP"]

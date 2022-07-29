@@ -20,7 +20,7 @@ import unittest
 
 import falcon
 
-from environment_provider.webserver import SubSuite
+from environment_provider_api.webserver import SubSuite
 from tests.library.fake_request import FakeRequest, FakeResponse
 from tests.library.fake_database import FakeDatabase
 

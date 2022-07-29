@@ -21,7 +21,7 @@ from uuid import uuid4
 
 import falcon
 
-from environment_provider.webserver import Configure
+from environment_provider_api.webserver import Configure
 from tests.library.fake_database import FakeDatabase
 from tests.library.fake_request import FakeRequest, FakeResponse
 

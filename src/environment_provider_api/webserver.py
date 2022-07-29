@@ -22,24 +22,26 @@ from etos_lib.etos import ETOS
 from etos_lib.lib.database import Database
 from etos_lib.logging.logger import FORMAT_CONFIG
 from jsontas.jsontas import JsonTas
-from environment_provider.middleware import RequireJSON, JSONTranslator
+
 from environment_provider.lib.celery import APP
 from environment_provider.lib.registry import ProviderRegistry
 
-from environment_provider.backend.environment import (
+from .middleware import RequireJSON, JSONTranslator
+
+from .backend.environment import (
     check_environment_status,
     get_environment_id,
     get_release_id,
     release_environment,
     request_environment,
 )
-from environment_provider.backend.register import (
+from .backend.register import (
     get_iut_provider,
     get_execution_space_provider,
     get_log_area_provider,
     register,
 )
-from environment_provider.backend.configure import (
+from .backend.configure import (
     configure,
     get_configuration,
     get_dataset,
@@ -47,8 +49,8 @@ from environment_provider.backend.configure import (
     get_iut_provider_id,
     get_log_area_provider_id,
 )
-from environment_provider.backend.subsuite import get_sub_suite, get_id
-from environment_provider.backend.common import get_suite_id, get_suite_runner_ids
+from .backend.subsuite import get_sub_suite, get_id
+from .backend.common import get_suite_id, get_suite_runner_ids
 
 
 class Webserver:

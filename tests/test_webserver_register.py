@@ -20,7 +20,7 @@ import unittest
 
 import falcon
 
-from environment_provider.webserver import Register
+from environment_provider_api.webserver import Register
 from tests.library.fake_database import FakeDatabase
 from tests.library.fake_request import FakeRequest, FakeResponse
 

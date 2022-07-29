@@ -23,14 +23,14 @@ from mock import patch
 from etos_lib import ETOS
 from jsontas.jsontas import JsonTas
 
-from environment_provider.backend.environment import (
+from environment_provider_api.backend.environment import (
     check_environment_status,
     get_environment_id,
     get_release_id,
     release_environment,
     request_environment,
 )
-from environment_provider.backend.common import get_suite_id
+from environment_provider_api.backend.common import get_suite_id
 from environment_provider.lib.registry import ProviderRegistry
 from tests.library.fake_celery import FakeCelery, Task
 from tests.library.fake_request import FakeRequest
@@ -320,7 +320,7 @@ class TestEnvironmentBackend(unittest.TestCase):
         self.assertDictEqual(environment_status, {"status": status, "result": result})
         self.assertIn(environment_id, worker.received)
 
-    @patch("environment_provider.backend.environment.get_environment")
+    @patch("environment_provider_api.backend.environment.get_environment")
     def test_request_environment(self, get_environment_mock):
         """Test that it is possible to start the environment provider.
 

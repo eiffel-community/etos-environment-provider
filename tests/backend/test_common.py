@@ -16,7 +16,7 @@
 """Tests for common functionality."""
 import unittest
 import logging
-from environment_provider.backend.common import get_suite_id
+from environment_provider_api.backend.common import get_suite_id
 from tests.library.fake_request import FakeRequest
 
 

@@ -21,7 +21,7 @@ import unittest
 from mock import patch
 import falcon
 
-from environment_provider.webserver import Webserver
+from environment_provider_api.webserver import Webserver
 
 from tests.library.fake_celery import FakeCelery, Task
 from tests.library.fake_database import FakeDatabase
@@ -155,7 +155,7 @@ class TestEnvironment(unittest.TestCase):
             response.media, {"status": test_status, "result": test_result}
         )
 
-    @patch("environment_provider.backend.environment.get_environment")
+    @patch("environment_provider_api.backend.environment.get_environment")
     def test_get_environment(self, get_environment_mock):
         """Test that it is possible to get environments from the environment provider.
 

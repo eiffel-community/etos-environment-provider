@@ -20,7 +20,7 @@ import json
 
 import falcon
 
-from environment_provider.backend.subsuite import get_id, get_sub_suite
+from environment_provider_api.backend.subsuite import get_id, get_sub_suite
 from tests.library.fake_request import FakeRequest
 from tests.library.fake_database import FakeDatabase
 

@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright 2020-2022 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -25,4 +25,4 @@ except PackageNotFoundError:
 
 DEV = os.getenv("DEV", "false").lower() == "true"
 ENVIRONMENT = "development" if DEV else "production"
-setup_logging("ETOS Environment Provider Worker", VERSION, ENVIRONMENT)
+setup_logging("ETOS Environment Provider", VERSION, ENVIRONMENT)

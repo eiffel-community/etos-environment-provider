@@ -22,7 +22,7 @@ from etos_lib import ETOS
 from jsontas.jsontas import JsonTas
 
 from environment_provider.lib.registry import ProviderRegistry
-from environment_provider.backend.register import (
+from environment_provider_api.backend.register import (
     register,
     get_iut_provider,
     get_execution_space_provider,
