@@ -334,12 +334,13 @@ class TestEnvironmentBackend(unittest.TestCase):
         task_id = "f3286e6e-946c-4510-a935-abd7c7bdbe17"
         get_environment_mock.delay.return_value = Task(task_id)
         suite_id = "ca950c50-03d3-4a3c-8507-b4229dd3f8ea"
+        suite_runner_id = ["dba8267b-d393-4e37-89ee-7657ea286564"]
 
         self.logger.info("STEP: Request an environment from the environment provider.")
-        response = request_environment(suite_id)
+        response = request_environment(suite_id, suite_runner_id)
 
         self.logger.info(
             "STEP: Verify that the environment provider starts the celery task."
         )
         self.assertEqual(response, task_id)
-        get_environment_mock.delay.assert_called_once_with(suite_id)
+        get_environment_mock.delay.assert_called_once_with(suite_id, suite_runner_id)

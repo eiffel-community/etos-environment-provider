@@ -174,8 +174,14 @@ class TestEnvironment(unittest.TestCase):
         get_environment_mock.delay.return_value = Task(task_id)
         celery_worker = FakeCelery(task_id, "", {})
         suite_id = "ca950c50-03d3-4a3c-8507-b4229dd3f8ea"
+        suite_runner_ids = (
+            "835cd892-7eda-408a-9e4c-84aaa71d05be,50146754-8b4f-4253-b5a9-2ee56960612c"
+        )
         request = FakeRequest()
-        request.fake_params = {"suite_id": suite_id}
+        request.fake_params = {
+            "suite_id": suite_id,
+            "suite_runner_ids": suite_runner_ids,
+        }
         response = FakeResponse()
 
         self.logger.info("STEP: Send a request for an environment.")
@@ -186,4 +192,6 @@ class TestEnvironment(unittest.TestCase):
             "STEP: Verify that the environment provider gets an environment."
         )
         self.assertEqual(response.media, {"result": "success", "data": {"id": task_id}})
-        get_environment_mock.delay.assert_called_once_with(suite_id)
+        get_environment_mock.delay.assert_called_once_with(
+            suite_id, suite_runner_ids.split(",")
+        )
