@@ -347,14 +347,22 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         :type test_suites: dict
         """
         base_url = os.getenv("ETOS_ENVIRONMENT_PROVIDER")
+        database = Database(None)  # None = no expiry
         for sub_suite in test_suites.get("sub_suites", []):
             # In a valid sub suite all of these keys must exist
             # making this a safe assumption
             identifier = sub_suite["executor"]["instructions"]["identifier"]
-            self.etos.events.send_environment_defined(
+            event = self.etos.events.send_environment_defined(
                 sub_suite.get("name"),
                 uri=f"{base_url}/sub_suite?id={identifier}",
                 links={"CONTEXT": self.dataset.get("context")},
+            )
+            database.write(event.meta.event_id, identifier)
+            database.writer.hset(
+                f"SubSuite:{identifier}", "EventID", event.meta.event_id
+            )
+            database.writer.hset(
+                f"SubSuite:{identifier}", "Suite", json.dumps(sub_suite)
             )
 
     def run(self):

@@ -27,7 +27,7 @@ from environment_provider_api.backend.environment import (
     check_environment_status,
     get_environment_id,
     get_release_id,
-    release_environment,
+    release_full_environment,
     request_environment,
 )
 from environment_provider_api.backend.common import get_suite_id
@@ -73,7 +73,7 @@ class TestEnvironmentBackend(unittest.TestCase):
             self.logger.info("STEP: Verify that the parameter is correct.")
             self.assertEqual(response_value, test_value)
 
-    def test_release_environment(self):
+    def test_release_full_environment(self):
         """Test that it is possible to release an environment.
 
         Approval criteria:
@@ -159,7 +159,7 @@ class TestEnvironmentBackend(unittest.TestCase):
             },
         )
         self.logger.info("STEP: Attempt to release an environment.")
-        success, _ = release_environment(
+        success, _ = release_full_environment(
             etos,
             jsontas,
             registry,
@@ -173,7 +173,7 @@ class TestEnvironmentBackend(unittest.TestCase):
         self.assertTrue(success)
         self.assertIsNone(worker.AsyncResult(test_release_id))
 
-    def test_release_environment_failure(self):
+    def test_release_full_environment_failure(self):
         """Test that a failure is returned when there is a problem with releasing.
 
         Approval criteria:
@@ -259,7 +259,7 @@ class TestEnvironmentBackend(unittest.TestCase):
         self.logger.info(
             "STEP: Release an environment where one provider will fail to check in."
         )
-        success, _ = release_environment(
+        success, _ = release_full_environment(
             etos,
             jsontas,
             registry,
@@ -271,7 +271,7 @@ class TestEnvironmentBackend(unittest.TestCase):
         self.assertFalse(success)
         self.assertIsNone(worker.AsyncResult(test_release_id))
 
-    def test_release_environment_no_task_result(self):
+    def test_release_full_environment_no_task_result(self):
         """Test that it is not possible to release an environment without task results.
 
         Approval criteria:
@@ -288,7 +288,7 @@ class TestEnvironmentBackend(unittest.TestCase):
         etos = ETOS("", "", "")
         registry = ProviderRegistry(etos, jsontas, database)
         self.logger.info("STEP: Attempt to release an environment without a task ID.")
-        success, _ = release_environment(
+        success, _ = release_full_environment(
             etos,
             jsontas,
             registry,

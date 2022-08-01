@@ -40,7 +40,7 @@ def get_environment_id(request):
 
 
 def get_release_id(request):
-    """Get the environment ID to release, from request.
+    """Get the task ID to release, from request.
 
     :param request: The falcon request object.
     :type request: :obj:`falcon.request`
@@ -48,6 +48,17 @@ def get_release_id(request):
     :rtype: str
     """
     return request.get_param("release")
+
+
+def get_single_release_id(request):
+    """Get the environment ID to release, from request.
+
+    :param request: The falcon request object.
+    :type request: :obj:`falcon.request`
+    :return: The ID of the environment to release.
+    :rtype: str
+    """
+    return request.get_param("single_release")
 
 
 def checkin_provider(item, provider):
@@ -70,7 +81,56 @@ def checkin_provider(item, provider):
     return not failure, failure
 
 
-def release_environment(
+def release_environment(etos, jsontas, provider_registry, sub_suite):
+    """Release a single sub-suite environment.
+
+    :param etos: ETOS library instance.
+    :type etos: :obj:`etos_lib.ETOS`
+    :param jsontas: JSONTas instance.
+    :type jsontas: :obj:`jsontas.jsontas.JsonTas`
+    :param provider_registry: The provider registry to get environments from.
+    :type provider_registry: :obj:`environment_provider.lib.registry.ProviderRegistry`
+    :param sub_suite: The sub suite environment to release.
+    :type sub_suite: dict
+    :return: Whether or not the release was successful
+    :rtype bool
+    """
+    etos.config.set("SUITE_ID", sub_suite.get("suite_id"))
+    iut = sub_suite.get("iut")
+    iut_ruleset = provider_registry.get_iut_provider_by_id(iut.get("provider_id")).get(
+        "iut"
+    )
+    executor = sub_suite.get("executor")
+    executor_ruleset = provider_registry.get_execution_space_provider_by_id(
+        executor.get("provider_id")
+    ).get("execution_space")
+    log_area = sub_suite.get("log_area")
+    log_area_ruleset = provider_registry.get_log_area_provider_by_id(
+        log_area.get("provider_id")
+    ).get("log")
+
+    failure = None
+    success, exception = checkin_provider(
+        Iut(**iut), IutProvider(etos, jsontas, iut_ruleset)
+    )
+    if not success:
+        failure = exception
+
+    success, exception = checkin_provider(
+        LogArea(**log_area), LogAreaProvider(etos, jsontas, log_area_ruleset)
+    )
+    if not success:
+        failure = exception
+    success, exception = checkin_provider(
+        ExecutionSpace(**executor),
+        ExecutionSpaceProvider(etos, jsontas, executor_ruleset),
+    )
+    if not success:
+        failure = exception
+    return failure
+
+
+def release_full_environment(
     etos, jsontas, provider_registry, task_result, release_id
 ):  # pylint:disable=too-many-locals
     """Release an already requested environment.
@@ -81,8 +141,8 @@ def release_environment(
     :type jsontas: :obj:`jsontas.jsontas.JsonTas`
     :param provider_registry: The provider registry to get environments from.
     :type provider_registry: :obj:`environment_provider.lib.registry.ProviderRegistry`
-    :param celery_worker: The worker holding the task results.
-    :type celery_worker: :obj:`celery.Celery`
+    :param task_result: The result from the task.
+    :type task_result: :obj:`celery.AsyncResult`
     :param release_id: The environment ID to release.
     :type release_id: str
     :return: Whether or not the release was successful together with
@@ -94,37 +154,27 @@ def release_environment(
     failure = None
     for suite in task_result.result.get("suites", {}):
         for sub_suite in suite.get("sub_suites", []):
-            etos.config.set("SUITE_ID", sub_suite.get("suite_id"))
-            iut = sub_suite.get("iut")
-            iut_ruleset = provider_registry.get_iut_provider_by_id(
-                iut.get("provider_id")
-            ).get("iut")
-            executor = sub_suite.get("executor")
-            executor_ruleset = provider_registry.get_execution_space_provider_by_id(
-                executor.get("provider_id")
-            ).get("execution_space")
-            log_area = sub_suite.get("log_area")
-            log_area_ruleset = provider_registry.get_log_area_provider_by_id(
-                log_area.get("provider_id")
-            ).get("log")
+            try:
+                identifier = (
+                    f"SubSuite:{sub_suite['executor']['instructions']['identifier']}"
+                )
+            except KeyError:
+                identifier = None
+            if identifier is not None:
+                event_id = provider_registry.database.reader.hget(identifier, "EventID")
+                event_suite = provider_registry.database.reader.hget(
+                    identifier, "Suite"
+                )
+                # Has already been checked in.
+                if not event_suite:
+                    continue
 
-            success, exception = checkin_provider(
-                Iut(**iut), IutProvider(etos, jsontas, iut_ruleset)
-            )
-            if not success:
-                failure = exception
+            failure = release_environment(etos, jsontas, provider_registry, sub_suite)
 
-            success, exception = checkin_provider(
-                LogArea(**log_area), LogAreaProvider(etos, jsontas, log_area_ruleset)
-            )
-            if not success:
-                failure = exception
-            success, exception = checkin_provider(
-                ExecutionSpace(**executor),
-                ExecutionSpaceProvider(etos, jsontas, executor_ruleset),
-            )
-            if not success:
-                failure = exception
+            if identifier is not None:
+                provider_registry.database.writer.hdel(identifier, "EventID")
+                provider_registry.database.writer.hdel(identifier, "Suite")
+                provider_registry.database.remove(event_id)
     task_result.forget()
     if failure:
         # Return the traceback from exception stored in failure.

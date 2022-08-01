@@ -16,6 +16,9 @@
 """ETOS Environment Provider webserver module."""
 import os
 import logging
+import traceback
+import json
+from uuid import UUID
 import falcon
 
 from etos_lib.etos import ETOS
@@ -32,6 +35,8 @@ from .backend.environment import (
     check_environment_status,
     get_environment_id,
     get_release_id,
+    get_single_release_id,
+    release_full_environment,
     release_environment,
     request_environment,
 )
@@ -67,8 +72,72 @@ class Webserver:
         self.database = database
         self.celery_worker = celery_worker
 
+    def release_single(self, response, environment_id):
+        """Release a single environment.
+
+        :param response: Response object to edit and return.
+        :type response: :obj:`falcon.response`
+        :param environment_id: Environment to release.
+        :type environment_id: str
+        """
+        etos = ETOS(
+            "ETOS Environment Provider",
+            os.getenv("HOSTNAME"),
+            "Environment Provider",
+        )
+        jsontas = JsonTas()
+        database = self.database()
+        registry = ProviderRegistry(etos, jsontas, database)
+
+        identifier = database.read(environment_id)
+        if not identifier:
+            response.media = {
+                "error": "Failed to release environment",
+                "details": f"Could not find a valid identifier for {environment_id}",
+                "status": "FAILURE",
+            }
+            return
+        identifier = identifier.decode("utf-8")
+        try:
+            UUID(identifier, version=4)
+        except (ValueError, TypeError):
+            response.media = {
+                "error": "Failed to release environment",
+                "details": f"Could not find a valid identifier for {environment_id}",
+                "status": "FAILURE",
+            }
+            return
+        identifier = f"SubSuite:{identifier}"
+        sub_suite = database.reader.hget(identifier, "Suite")
+        if sub_suite is None:
+            response.media = {
+                "error": "Failed to release environment",
+                "details": f"{identifier} could not be found in database",
+                "status": "FAILURE",
+            }
+            return
+        sub_suite = json.loads(sub_suite)
+        failure = release_environment(etos, jsontas, registry, sub_suite)
+        if failure:
+            response.media = {
+                "error": "Failed to release environment",
+                "details": "".join(
+                    traceback.format_exception(
+                        failure, value=failure, tb=failure.__traceback__
+                    )
+                ),
+                "status": "FAILURE",
+            }
+            return
+        database.writer.hdel(identifier, "EventID")
+        database.writer.hdel(identifier, "Suite")
+        database.remove(environment_id)
+
+        response.status = falcon.HTTP_200
+        response.media = {"status": "SUCCESS"}
+
     def release(self, response, task_id):  # pylint:disable=too-many-locals
-        """Release an environment.
+        """Release a full environment.
 
         :param response: Response object to edit and return.
         :type response: :obj:`falcon.response`
@@ -83,7 +152,7 @@ class Webserver:
         jsontas = JsonTas()
         registry = ProviderRegistry(etos, jsontas, self.database())
         task_result = self.celery_worker.AsyncResult(task_id)
-        success, message = release_environment(
+        success, message = release_full_environment(
             etos, jsontas, registry, task_result, task_id
         )
         if not success:
@@ -93,6 +162,7 @@ class Webserver:
                 "status": task_result.status if task_result else "PENDING",
             }
             return
+
         response.status = falcon.HTTP_200
         response.media = {"status": task_result.status if task_result else "PENDING"}
 
@@ -108,16 +178,19 @@ class Webserver:
         """
         task_id = get_environment_id(request)
         release = get_release_id(request)
-        if task_id is None and release is None:
+        single_release = get_single_release_id(request)
+        if not any([task_id, release, single_release]):
             raise falcon.HTTPBadRequest(
                 "Missing parameters", "'id' or 'release' are required parameters."
             )
-        if release:
+        if single_release:
+            self.release_single(response, single_release)
+        elif release:
             self.release(response, release)
-            return
-        result = check_environment_status(self.celery_worker, task_id)
-        response.status = falcon.HTTP_200
-        response.media = result
+        else:
+            result = check_environment_status(self.celery_worker, task_id)
+            response.status = falcon.HTTP_200
+            response.media = result
 
     @staticmethod
     def on_post(request, response):
@@ -130,9 +203,15 @@ class Webserver:
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        task_id = request_environment(
-            get_suite_id(request), get_suite_runner_ids(request)
-        )
+        suite_id = get_suite_id(request)
+        suite_runner_ids = get_suite_runner_ids(request)
+        if not all([suite_runner_ids, suite_id]):
+            raise falcon.HTTPBadRequest(
+                "Missing parameters",
+                "the 'suite_id' and 'suite_runner_ids' parameters are required.",
+            )
+
+        task_id = request_environment(suite_id, suite_runner_ids)
         response.status = falcon.HTTP_200
         response.media = {"result": "success", "data": {"id": task_id}}
 
