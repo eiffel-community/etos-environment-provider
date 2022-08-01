@@ -204,9 +204,15 @@ class Webserver:
         :param response: Falcon response object.
         :type response: :obj:`falcon.response`
         """
-        task_id = request_environment(
-            get_suite_id(request), get_suite_runner_ids(request)
-        )
+        suite_id = get_suite_id(request)
+        suite_runner_ids = get_suite_runner_ids(request)
+        if not all([suite_runner_ids, suite_id]):
+            raise falcon.HTTPBadRequest(
+                "Missing parameters",
+                "the 'suite_id' and 'suite_runner_ids' parameters are required.",
+            )
+
+        task_id = request_environment(suite_id, suite_runner_ids)
         response.status = falcon.HTTP_200
         response.media = {"result": "success", "data": {"id": task_id}}
 
