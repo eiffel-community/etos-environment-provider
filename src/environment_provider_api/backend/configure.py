@@ -60,7 +60,7 @@ def get_dataset(request):
     """
     dataset = request.media.get("dataset")
     if dataset is not None:
-        if not isinstance(dataset, dict):
+        if not isinstance(dataset, (dict, list)):
             dataset = json.loads(dataset)
     return dataset
 
@@ -97,7 +97,7 @@ def configure(
             iut_provider_id,
             execution_space_provider_id,
             log_area_provider_id,
-            isinstance(dataset, dict),
+            isinstance(dataset, (dict, list)),
             suite_id,
         ]
     ):

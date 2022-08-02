@@ -78,14 +78,48 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             # The impact of not doing this is that the environment provider would re-use
             # another workers configuration instead of using its own.
             self.etos.config.config = deepcopy(self.etos.config.config)
-            self.jsontas = JsonTas()
-            self.dataset = self.jsontas.dataset
+            self.reset()
+        self.splitter = Splitter(self.etos, {})
 
+    def reset(self):
+        """Create a new dataset and provider registry."""
+        self.jsontas = JsonTas()
+        self.dataset = self.jsontas.dataset
         self.dataset.add("json_dumps", JsonDumps)
         self.dataset.add("uuid_generate", UuidGenerate)
         self.dataset.add("join", Join)
         self.registry = ProviderRegistry(self.etos, self.jsontas, Database())
-        self.splitter = Splitter(self.etos, {})
+
+    def new_dataset(self, dataset):
+        """Load a new dataset.
+
+        :param dataset: Dataset to use for this configuration.
+        :type dataset: dict
+        """
+        self.reset()
+        self.dataset.add("environment", os.environ)
+        self.dataset.add("config", self.etos.config)
+        self.dataset.add("identity", self.environment_provider_config.identity)
+        self.dataset.add("artifact_id", self.environment_provider_config.artifact_id)
+        self.dataset.add("context", self.environment_provider_config.context)
+        self.dataset.add("custom_data", self.environment_provider_config.custom_data)
+        self.dataset.add("uuid", str(uuid.uuid4()))
+        self.dataset.add(
+            "artifact_created", self.environment_provider_config.artifact_created
+        )
+        self.dataset.add(
+            "artifact_published", self.environment_provider_config.artifact_published
+        )
+        self.dataset.add("tercc", self.environment_provider_config.tercc)
+
+        self.dataset.add("dataset", dataset)
+        self.dataset.merge(dataset)
+
+        self.iut_provider = self.registry.iut_provider(self.suite_id)
+        self.log_area_provider = self.registry.log_area_provider(self.suite_id)
+        self.execution_space_provider = self.registry.execution_space_provider(
+            self.suite_id
+        )
 
     def configure(self, suite_id):
         """Configure environment provider.
@@ -103,10 +137,6 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             )
         self.logger.info("Registry is configured.")
         self.etos.config.set("SUITE_ID", suite_id)
-
-        self.iut_provider = self.registry.iut_provider(suite_id)
-        self.log_area_provider = self.registry.log_area_provider(suite_id)
-        self.execution_space_provider = self.registry.execution_space_provider(suite_id)
 
         self.etos.config.set(
             "EVENT_DATA_TIMEOUT", int(os.getenv("ETOS_EVENT_DATA_TIMEOUT", "10"))
@@ -146,23 +176,6 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 if value is None
             ]
             raise NoEventDataFound(f"Missing: {', '.join(missing)}")
-
-        self.dataset.add("environment", os.environ)
-        self.dataset.add("config", self.etos.config)
-        self.dataset.add("identity", self.environment_provider_config.identity)
-        self.dataset.add("artifact_id", self.environment_provider_config.artifact_id)
-        self.dataset.add("context", self.environment_provider_config.context)
-        self.dataset.add("custom_data", self.environment_provider_config.custom_data)
-        self.dataset.add("uuid", str(uuid.uuid4()))
-        self.dataset.add(
-            "artifact_created", self.environment_provider_config.artifact_created
-        )
-        self.dataset.add(
-            "artifact_published", self.environment_provider_config.artifact_published
-        )
-        self.dataset.add("tercc", self.environment_provider_config.tercc)
-        self.dataset.add("dataset", self.registry.dataset(suite_id))
-        self.dataset.merge(self.registry.dataset(suite_id))
 
     def cleanup(self):
         """Clean up by checkin in all checked out providers."""
@@ -375,7 +388,18 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         try:
             self.configure(self.suite_id)
             test_suites = self.create_test_suite_dict()
+
+            datasets = self.registry.dataset(self.suite_id)
+            if isinstance(datasets, list):
+                assert len(datasets) == len(
+                    test_suites
+                ), "If multiple datasets are provided it must correspond with number of test suites"
+            else:
+                datasets = [datasets] * len(test_suites)
             for test_suite_name, test_runners in test_suites.items():
+                dataset = datasets.pop(0)
+                self.new_dataset(dataset)
+
                 self.set_total_test_count_and_test_runners(test_runners)
                 self.logger.info(
                     "Total test count : %r", self.etos.config.get("TOTAL_TEST_COUNT")
