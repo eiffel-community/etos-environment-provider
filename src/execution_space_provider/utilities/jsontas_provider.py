@@ -129,7 +129,7 @@ class JSONTasProvider:
                 if len(checked_out_execution_spaces) < minimum_amount:
                     raise ExecutionSpaceNotAvailable(self.id)
                 break
-            except NoExecutionSpaceFound(self.id):
+            except NoExecutionSpaceFound:
                 self.logger.critical(
                     "Execution space does not exist in execution space provider!"
                 )
