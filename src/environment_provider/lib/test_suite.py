@@ -141,7 +141,7 @@ class TestSuite:
         self.test_suite_name = test_suite_name
         self.test_runners = test_runners
         self.environment_provider_config = environment_provider_config
-        self.database = Database()
+        self.database = Database(expire=172800)  # 48h
 
     def add(self, name, value):
         """Add a new item to suite.
