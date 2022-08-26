@@ -181,7 +181,8 @@ class Webserver:
         single_release = get_single_release_id(request)
         if not any([task_id, release, single_release]):
             raise falcon.HTTPBadRequest(
-                "Missing parameters", "'id' or 'release' are required parameters."
+                "Missing parameters",
+                "'id', 'release' or 'single_release' are required parameters.",
             )
         if single_release:
             self.release_single(response, single_release)
