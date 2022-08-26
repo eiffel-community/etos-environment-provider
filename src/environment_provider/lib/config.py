@@ -61,6 +61,8 @@ class Config:  # pylint:disable=too-many-instance-attributes
             # readability of the environment provider, so we choose to remove
             # them when loading them into the local configuration.
             if key.startswith("ENVIRONMENT_PROVIDER"):
+                if isinstance(value, bytes):
+                    value = value.decode("utf-8")
                 if value.isdigit():
                     value = int(value)
                 elif value.isdecimal():
