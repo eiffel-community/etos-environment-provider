@@ -140,3 +140,38 @@ def request_artifact_published(etos, artifact_id):
         if response:
             return response
     return None
+
+
+def request_main_suite(etos, main_suite_id):
+    """Request a test suite started event from graphql.
+
+    :param etos: ETOS library instance.
+    :type etos: :obj:`etos_lib.etos.Etos`
+    :param main_suite_id: ID of main suite to get from ER.
+    :type main_suite_id: str
+    :return: Response from graphql or None
+    :rtype: dict or None
+    """
+    query = """
+{
+  testSuiteStarted(last: 1, search: "{'meta.id': '%s'}") {
+    edges {
+      node {
+        meta {
+          id
+        }
+      }
+    }
+  }
+}
+    """
+    for response in request(etos, query % main_suite_id):
+        if response:
+            try:
+                _, test_suite_started = next(
+                    etos.graphql.search_for_nodes(response, "testSuiteStarted")
+                )
+            except StopIteration:
+                return None
+            return test_suite_started
+    return None

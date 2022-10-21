@@ -27,6 +27,7 @@ from etos_lib.logging.logger import FORMAT_CONFIG
 from jsontas.jsontas import JsonTas
 from .splitter.split import Splitter
 from .lib.celery import APP
+from .lib.graphql import request_main_suite
 from .lib.config import Config
 from .lib.test_suite import TestSuite
 from .lib.registry import ProviderRegistry
@@ -378,7 +379,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 f"SubSuite:{identifier}", "Suite", json.dumps(sub_suite)
             )
 
-    def checkout(self, test_suite_name, test_runners, dataset):
+    def checkout(self, test_suite_name, test_runners, dataset, main_suite_id):
         """Checkout an environment for a test suite.
 
         :param test_suite_name: Name of the test suite.
@@ -387,6 +388,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         :type test_runners: dict
         :param dataset: The dataset for this particular checkout.
         :type dataset: dict
+        :param main_suite_id: The ID of the main suite that initiated this checkout.
+        :type main_suite_id: str
         :return: The test suite and environment json for this checkout.
         :rtype: dict
         """
@@ -418,7 +421,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         # execution spaces and log areas with tests split up over as many as
         # possible. The resulting test suite definition is further explained in
         # :obj:`environment_provider.lib.test_suite.TestSuite`
-        test_suite.generate(self.suite_runner_ids.pop(0))
+        test_suite.generate(main_suite_id)
         test_suite_json = test_suite.to_json()
 
         # Test that the test suite JSON is serializable so that the
@@ -428,11 +431,9 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
 
         return test_suite_json
 
-    def _run(self, main_activity):
+    def _run(self):
         """Run the environment provider task.
 
-        :param main_activity: The main environment provider activity.
-        :type main_activity: :obj:`eiffellib.events.EiffelActivityTriggeredEvent`
         :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
         :rtype: dict
         """
@@ -450,15 +451,20 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             datasets = [datasets] * len(test_suites)
         for test_suite_name, test_runners in test_suites.items():
             try:
+                main_suite = request_main_suite(self.etos, self.suite_runner_ids.pop(0))
+                main_suite_id = main_suite["meta"]["id"]
+
                 triggered = self.etos.events.send_activity_triggered(
                     f"Checkout environment for {test_suite_name}",
-                    {"CONTEXT": main_activity},
+                    {"CONTEXT": main_suite_id},
                     executionType="AUTOMATED",
                 )
                 self.etos.config.set("environment_provider_context", triggered)
                 self.etos.events.send_activity_started(triggered)
                 dataset = datasets.pop(0)
-                test_suite_json = self.checkout(test_suite_name, test_runners, dataset)
+                test_suite_json = self.checkout(
+                    test_suite_name, test_runners, dataset, main_suite_id
+                )
                 self.send_environment_events(test_suite_json)
                 suites.append(test_suite_json)
             except Exception as exception:  # pylint:disable=broad-except
@@ -480,33 +486,14 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
         :rtype: dict
         """
-        error = None
         try:
             self.configure(self.suite_id)
-            triggered = self.etos.events.send_activity_triggered(
-                "Environment Provider",
-                {"CONTEXT": self.environment_provider_config.context},
-                executionType="AUTOMATED",
-                triggers=[
-                    {
-                        "type": "OTHER",
-                        "description": f"Triggered by suite runner for suite: {self.suite_id!r}",
-                    }
-                ],
-            )
-            self.etos.events.send_activity_started(triggered)
-            return self._run(triggered)
+            return self._run()
         except Exception as exception:  # pylint:disable=broad-except
             self.cleanup()
             traceback.print_exc()
-            error = exception
             return {"error": str(exception), "details": traceback.format_exc()}
         finally:
-            if error is None:
-                outcome = {"conclusion": "SUCCESSFUL"}
-            else:
-                outcome = {"conclusion": "UNSUCCESSFUL", "description": str(error)}
-            self.etos.events.send_activity_finished(triggered, outcome)
             if self.etos.publisher is not None:
                 self.etos.publisher.wait_for_unpublished_events()
                 self.etos.publisher.stop()
