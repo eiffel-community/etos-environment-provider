@@ -301,5 +301,51 @@ class ExternalProvider:
             raise
         return execution_spaces
 
-    # Compatibility with the JSONTas providers.
-    wait_for_and_checkout_execution_spaces = request_and_wait_for_execution_spaces
+    def wait_for_and_checkout_execution_spaces(
+        self, minimum_amount=0, maximum_amount=100
+    ):
+        """Wait for execution spaces from an external execution space provider.
+
+        See: `request_and_wait_for_execution_spaces`
+
+        :raises: ExecutionSpaceNotAvailable: If there are no available execution spaces after
+                                             timeout.
+
+        :param minimum_amount: Minimum amount of execution spaces to checkout.
+        :type minimum_amount: int
+        :param maximum_amount: Maximum amount of execution spaces to checkout.
+        :type maximum_amount: int
+        :return: List of checked out execution spaces.
+        :rtype: list
+        """
+        error = None
+        try:
+            triggered = self.etos.events.send_activity_triggered(
+                self.id,
+                {"CONTEXT": self.context},
+                executionType="AUTOMATED",
+                categories=[
+                    "EnvironmentProvider",
+                    "ExecutionSpaceProvider",
+                    "External",
+                ],
+                triggers=[
+                    {
+                        "type": "OTHER",
+                        "description": f"Checking out execution spaces",
+                    }
+                ],
+            )
+            self.etos.events.send_activity_started(triggered)
+            return self.request_and_wait_for_execution_spaces(
+                minimum_amount, maximum_amount
+            )
+        except Exception as exception:
+            error = exception
+            raise
+        finally:
+            if error is None:
+                outcome = {"conclusion": "SUCCESSFUL"}
+            else:
+                outcome = {"conclusion": "UNSUCCESSFUL", "description": str(error)}
+            self.etos.events.send_activity_finished(triggered, outcome)

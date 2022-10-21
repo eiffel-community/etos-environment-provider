@@ -100,7 +100,8 @@ class Prepare:  # pylint:disable=too-few-public-methods
                 self.logger.info("Preparing IUT %r", iut)
                 results.append(
                     thread_pool.apply_async(
-                        self.execute_preparation_steps, args=(iut, deepcopy(steps))
+                        self.execute_preparation_steps,
+                        args=(iut, deepcopy(steps)),
                     )
                 )
             for result in results:

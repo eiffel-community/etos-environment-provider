@@ -47,6 +47,7 @@ class JSONTasProvider:
         self.etos.config.set("logs", [])
         self.ruleset = ruleset
         self.id = self.ruleset.get("id")  # pylint:disable=invalid-name
+        self.context = self.etos.config.get("environment_provider_context")
         self.logger.info("Initialized log area provider %r", self.id)
 
     def checkout(self, available_log_areas):
@@ -85,7 +86,7 @@ class JSONTasProvider:
         checkin_log_areas = Checkin(self.jsontas, self.ruleset.get("checkin"))
         checkin_log_areas.checkin(log_area)
 
-    def wait_for_and_checkout_log_areas(self, minimum_amount=0, maximum_amount=100):
+    def _wait_for_and_checkout_log_areas(self, minimum_amount=0, maximum_amount=100):
         """Wait for and checkout log areas from an log area provider.
 
         :raises: LogAreaNotAvailable: If there are no available log areas after timeout.
@@ -145,3 +146,48 @@ class JSONTasProvider:
         if len(checked_out_log_areas) < minimum_amount:
             raise LogAreaNotAvailable(self.id)
         return checked_out_log_areas
+
+    def wait_for_and_checkout_log_areas(self, minimum_amount=0, maximum_amount=100):
+        """Wait for and checkout log areas from an log area provider.
+
+        See: `_wait_for_and_checkout_log_areas`
+
+        :raises: LogAreaNotAvailable: If there are no available log areas after timeout.
+
+        :param minimum_amount: Minimum amount of log areas to checkout.
+        :type minimum_amount: int
+        :param maximum_amount: Maximum amount of log areas to checkout.
+        :type maximum_amount: int
+        :return: List of checked out log areas.
+        :rtype: list
+        """
+        error = None
+        try:
+            triggered = self.etos.events.send_activity_triggered(
+                self.id,
+                {"CONTEXT": self.context},
+                executionType="AUTOMATED",
+                categories=["EnvironmentProvider", "LogAreaProvider"],
+                triggers=[
+                    {
+                        "type": "OTHER",
+                        "description": f"Checking out log areas",
+                    }
+                ],
+            )
+            self.etos.events.send_activity_started(triggered)
+            return self._wait_for_and_checkout_log_areas(
+                triggered, minimum_amount, maximum_amount
+            )
+        except Exception as exception:
+            error = exception
+            raise
+        finally:
+            if error is None:
+                outcome = {"conclusion": "SUCCESSFUL"}
+            else:
+                outcome = {"conclusion": "UNSUCCESSFUL", "description": str(error)}
+            self.etos.events.send_activity_finished(
+                triggered,
+                outcome,
+            )

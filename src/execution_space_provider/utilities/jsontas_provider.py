@@ -47,6 +47,7 @@ class JSONTasProvider:
         self.etos.config.set("execution_spaces", [])
         self.ruleset = ruleset
         self.id = self.ruleset.get("id")  # pylint:disable=invalid-name
+        self.context = self.etos.config.get("environment_provider_context")
         self.logger.info("Initialized execution space provider %r", self.id)
 
     def checkout(self, available_execution_spaces):
@@ -88,7 +89,7 @@ class JSONTasProvider:
         checkin_execution_spaces = Checkin(self.jsontas, self.ruleset.get("checkin"))
         checkin_execution_spaces.checkin(execution_space)
 
-    def wait_for_and_checkout_execution_spaces(
+    def _wait_for_and_checkout_execution_spaces(
         self, minimum_amount=0, maximum_amount=100
     ):
         """Wait for and checkout execution spaces from an execution space provider.
@@ -155,3 +156,48 @@ class JSONTasProvider:
         if len(checked_out_execution_spaces) < minimum_amount:
             raise ExecutionSpaceNotAvailable(self.id)
         return checked_out_execution_spaces
+
+    def wait_for_and_checkout_execution_spaces(
+        self, minimum_amount=0, maximum_amount=100
+    ):
+        """Wait for and checkout execution spaces from an execution space provider.
+
+        See: `_wait_for_and_checkout_execution_spaces`
+
+        :raises: ExecutionSpaceNotAvailable: If there are no available execution spaces after
+                                             timeout.
+
+        :param minimum_amount: Minimum amount of execution spaces to checkout.
+        :type minimum_amount: int
+        :param maximum_amount: Maximum amount of execution spaces to checkout.
+        :type maximum_amount: int
+        :return: List of checked out execution spaces.
+        :rtype: list
+        """
+        error = None
+        try:
+            triggered = self.etos.events.send_activity_triggered(
+                self.id,
+                {"CONTEXT": self.context},
+                executionType="AUTOMATED",
+                categories=["EnvironmentProvider", "ExecutionSpaceProvider"],
+                triggers=[
+                    {
+                        "type": "OTHER",
+                        "description": f"Checking out execution spaces",
+                    }
+                ],
+            )
+            self.etos.events.send_activity_started(triggered)
+            return self._wait_for_and_checkout_execution_spaces(
+                minimum_amount, maximum_amount
+            )
+        except Exception as exception:
+            error = exception
+            raise
+        finally:
+            if error is None:
+                outcome = {"conclusion": "SUCCESSFUL"}
+            else:
+                outcome = {"conclusion": "UNSUCCESSFUL", "description": str(error)}
+            self.etos.events.send_activity_finished(triggered, outcome)

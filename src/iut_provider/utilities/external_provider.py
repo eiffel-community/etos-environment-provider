@@ -289,5 +289,42 @@ class ExternalProvider:
             raise
         return iuts
 
-    # Compatibility with the JSONTas providers.
-    wait_for_and_checkout_iuts = request_and_wait_for_iuts
+    def wait_for_and_checkout_iuts(self, minimum_amount=0, maximum_amount=100):
+        """Wait for IUTs from an external IUT provider.
+
+        See: `request_and_wait_for_iuts`
+
+        :raises: IutNotAvailable: If there are no available IUTs.
+
+        :param minimum_amount: Minimum amount of IUTs to checkout.
+        :type minimum_amount: int
+        :param maximum_amount: Maximum amount of IUTs to checkout.
+        :type maximum_amount: int
+        :return: List of checked out IUTs.
+        :rtype: list
+        """
+        error = None
+        try:
+            triggered = self.etos.events.send_activity_triggered(
+                self.id,
+                {"CONTEXT": self.context},
+                executionType="AUTOMATED",
+                categories=["EnvironmentProvider", "IUTProvider", "External"],
+                triggers=[
+                    {
+                        "type": "OTHER",
+                        "description": f"Checking out IUTs",
+                    }
+                ],
+            )
+            self.etos.events.send_activity_started(triggered)
+            return self.request_and_wait_for_iuts(minimum_amount, maximum_amount)
+        except Exception as exception:
+            error = exception
+            raise
+        finally:
+            if error is None:
+                outcome = {"conclusion": "SUCCESSFUL"}
+            else:
+                outcome = {"conclusion": "UNSUCCESSFUL", "description": str(error)}
+            self.etos.events.send_activity_finished(triggered, outcome)
