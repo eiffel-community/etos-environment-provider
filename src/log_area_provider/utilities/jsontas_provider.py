@@ -177,7 +177,7 @@ class JSONTasProvider:
             )
             self.etos.events.send_activity_started(triggered)
             return self._wait_for_and_checkout_log_areas(
-                triggered, minimum_amount, maximum_amount
+                minimum_amount, maximum_amount
             )
         except Exception as exception:
             error = exception
