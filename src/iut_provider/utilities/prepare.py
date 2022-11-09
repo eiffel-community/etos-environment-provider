@@ -67,6 +67,7 @@ class Prepare:  # pylint:disable=too-few-public-methods
                 self.logger.info("Executing step %r", step)
                 step_result = jsontas.run(json_data=definition)
                 self.logger.info("%r", step_result)
+                setattr(iut, step, step_result)
                 if not step_result:
                     self.logger.error("Failed to execute step %r", step)
                     return False, iut
