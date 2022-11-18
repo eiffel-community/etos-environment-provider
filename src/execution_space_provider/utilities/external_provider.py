@@ -65,6 +65,7 @@ class ExternalProvider:
         self.dataset = jsontas.dataset
         self.ruleset = ruleset
         self.id = self.ruleset.get("id")  # pylint:disable=invalid-name
+        self.context = self.etos.config.get("environment_provider_context")
         self.identifier = self.etos.config.get("SUITE_ID")
         self.logger.info("Initialized external execution space provider %r", self.id)
 
