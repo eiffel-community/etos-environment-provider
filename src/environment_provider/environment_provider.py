@@ -19,6 +19,7 @@ import uuid
 import logging
 import traceback
 import json
+import time
 from threading import Lock
 from copy import deepcopy
 from etos_lib.etos import ETOS
@@ -431,6 +432,21 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
 
         return test_suite_json
 
+    def wait_for_main_suite(self, test_suite_id):
+        """Wait for main test suite started to be available in ER.
+
+        :param test_suite_id: The ID of the test suite started.
+        :type test_suite_id: str
+        :return: a test suite started event.
+        :rtype: dict
+        """
+        main_suite = request_main_suite(self.etos, test_suite_id)
+        timeout = time.time() + 30
+        while main_suite is None and time.time() < timeout:
+            main_suite = request_main_suite(self.etos, test_suite_id)
+            time.sleep(5)
+        return main_suite
+
     def _run(self):
         """Run the environment provider task.
 
@@ -450,8 +466,13 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         else:
             datasets = [datasets] * len(test_suites)
         for test_suite_name, test_runners in test_suites.items():
+            triggered = None
             try:
-                main_suite = request_main_suite(self.etos, self.suite_runner_ids.pop(0))
+                main_suite = self.wait_for_main_suite(self.suite_runner_ids.pop(0))
+                if main_suite is None:
+                    raise TimeoutError(
+                        "Timed out while waiting for test suite started from ESR"
+                    )
                 main_suite_id = main_suite["meta"]["id"]
 
                 triggered = self.etos.events.send_activity_triggered(
@@ -475,7 +496,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     outcome = {"conclusion": "SUCCESSFUL"}
                 else:
                     outcome = {"conclusion": "UNSUCCESSFUL", "description": str(error)}
-                self.etos.events.send_activity_finished(triggered, outcome)
+                if triggered is not None:
+                    self.etos.events.send_activity_finished(triggered, outcome)
         return {"suites": suites, "error": None}
 
     def run(self):
