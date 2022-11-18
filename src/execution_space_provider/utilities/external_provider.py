@@ -319,6 +319,7 @@ class ExternalProvider:
         :rtype: list
         """
         error = None
+        triggered = None
         try:
             triggered = self.etos.events.send_activity_triggered(
                 self.id,
@@ -348,4 +349,5 @@ class ExternalProvider:
                 outcome = {"conclusion": "SUCCESSFUL"}
             else:
                 outcome = {"conclusion": "UNSUCCESSFUL", "description": str(error)}
-            self.etos.events.send_activity_finished(triggered, outcome)
+            if triggered is not None:
+                self.etos.events.send_activity_finished(triggered, outcome)
