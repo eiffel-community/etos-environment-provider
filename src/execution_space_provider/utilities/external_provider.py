@@ -323,7 +323,7 @@ class ExternalProvider:
         triggered = None
         try:
             triggered = self.etos.events.send_activity_triggered(
-                self.id,
+                f"Checkout execution spaces from {self.id}",
                 {"CONTEXT": self.context},
                 executionType="AUTOMATED",
                 categories=[

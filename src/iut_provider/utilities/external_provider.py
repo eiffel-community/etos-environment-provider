@@ -308,7 +308,7 @@ class ExternalProvider:
         triggered = None
         try:
             triggered = self.etos.events.send_activity_triggered(
-                self.id,
+                f"Checkout IUTs from {self.id}",
                 {"CONTEXT": self.context},
                 executionType="AUTOMATED",
                 categories=["EnvironmentProvider", "IUTProvider", "External"],

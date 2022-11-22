@@ -309,7 +309,7 @@ class ExternalProvider:
         triggered = None
         try:
             triggered = self.etos.events.send_activity_triggered(
-                self.id,
+                f"Checkout log areas from {self.id}",
                 {"CONTEXT": self.context},
                 executionType="AUTOMATED",
                 categories=["EnvironmentProvider", "LogAreaProvider", "External"],
