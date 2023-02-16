@@ -150,7 +150,7 @@ class TestEnvironmentProvider(unittest.TestCase):
         self.assertEqual(len(environments), 2)
 
     def test_get_environment(self):
-        """Test environment provider with 1 different sub suites.
+        """Test environment provider with single sub suites.
 
         Approval criteria:
             - The environment provider shall provide 1 environment for 1 sub suites.
