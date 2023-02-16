@@ -226,7 +226,7 @@ class Config:  # pylint:disable=too-many-instance-attributes
                 batch = self.tercc.get("data", {}).get("batches")
                 batch_uri = self.tercc.get("data", {}).get("batchesUri")
                 if batch is not None and batch_uri is not None:
-                    raise Exception(
+                    raise ValueError(
                         "Only one of 'batches' or 'batchesUri' shall be set"
                     )
                 if batch is not None:
