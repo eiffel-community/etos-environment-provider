@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright 2020-2023 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -58,15 +58,18 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     task_track_started = True  # Make celery task report 'STARTED' state
     lock = Lock()
 
-    def __init__(self, suite_id, suite_runner_ids):
+    def __init__(self, suite_id, suite_runner_ids, test_db=None):
         """Initialize ETOS, dataset, provider registry and splitter.
 
         :param suite_id: Suite ID to get an environment for
         :type suite_id: str
         :param suite_runner_ids: IDs from the suite runner to correlate sub suites.
         :type suite_runner_ids: list
+        :param test_db: Override the database with a test database.
+        :type test_db: obj
         """
         self.suite_id = suite_id
+        self.test_db = test_db
         FORMAT_CONFIG.identifier = suite_id
         self.suite_runner_ids = suite_runner_ids
         self.logger.info("Initializing EnvironmentProvider task.")
@@ -90,7 +93,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.dataset.add("json_dumps", JsonDumps)
         self.dataset.add("uuid_generate", UuidGenerate)
         self.dataset.add("join", Join)
-        self.registry = ProviderRegistry(self.etos, self.jsontas, Database())
+        self.database = self.test_db or Database()
+        self.registry = ProviderRegistry(self.etos, self.jsontas, self.database)
 
     def new_dataset(self, dataset):
         """Load a new dataset.
@@ -158,7 +162,9 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.logger.info("Connect to RabbitMQ")
         self.etos.config.rabbitmq_publisher_from_environment()
         self.etos.start_publisher()
-        self.etos.publisher.wait_start()
+        if not self.etos.debug.disable_sending_events:
+            self.etos.publisher.wait_start()
+        self.logger.info("Connected")
 
         self.environment_provider_config = Config(self.etos, suite_id)
         if not self.environment_provider_config.generated:
@@ -362,7 +368,6 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         :type test_suites: dict
         """
         base_url = os.getenv("ETOS_ENVIRONMENT_PROVIDER")
-        database = Database(None)  # None = no expiry
         for sub_suite in test_suites.get("sub_suites", []):
             # In a valid sub suite all of these keys must exist
             # making this a safe assumption
@@ -372,11 +377,11 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 uri=f"{base_url}/sub_suite?id={identifier}",
                 links={"CONTEXT": self.etos.config.get("environment_provider_context")},
             )
-            database.write(event.meta.event_id, identifier)
-            database.writer.hset(
+            self.database.write(event.meta.event_id, identifier)
+            self.database.writer.hset(
                 f"SubSuite:{identifier}", "EventID", event.meta.event_id
             )
-            database.writer.hset(
+            self.database.writer.hset(
                 f"SubSuite:{identifier}", "Suite", json.dumps(sub_suite)
             )
 
@@ -415,7 +420,10 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             self.splitter.split(sub_suite)
 
         test_suite = TestSuite(
-            test_suite_name, test_runners, self.environment_provider_config
+            test_suite_name,
+            test_runners,
+            self.environment_provider_config,
+            self.database,
         )
         # This is where the resulting test suite is generated.
         # The resulting test suite will be a dictionary with test runners, IUTs
@@ -516,21 +524,26 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             traceback.print_exc()
             return {"error": str(exception), "details": traceback.format_exc()}
         finally:
-            if self.etos.publisher is not None:
+            if (
+                self.etos.publisher is not None
+                and not self.etos.debug.disable_sending_events
+            ):
                 self.etos.publisher.wait_for_unpublished_events()
                 self.etos.publisher.stop()
 
 
 @APP.task(name="EnvironmentProvider")
-def get_environment(suite_id, suite_runner_ids):
+def get_environment(suite_id, suite_runner_ids, test_db=None):
     """Get an environment for ETOS test executions.
 
     :param suite_id: Suite ID to get an environment for
     :type suite_id: str
     :param suite_runner_ids: Suite runner correlation IDs.
     :type suite_runner_ids: list
+    :param test_db: Override the database with a test database.
+    :type test_db: obj
     :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
     :rtype: dict
     """
-    environment_provider = EnvironmentProvider(suite_id, suite_runner_ids)
+    environment_provider = EnvironmentProvider(suite_id, suite_runner_ids, test_db)
     return environment_provider.run()

@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2023 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -223,17 +223,25 @@ class Config:  # pylint:disable=too-many-instance-attributes
         """
         if self.__test_suite is None:
             try:
+                batch = self.tercc.get("data", {}).get("batches")
                 batch_uri = self.tercc.get("data", {}).get("batchesUri")
-                json_header = {"Accept": "application/json"}
-                json_response = self.etos.http.wait_for_request(
-                    batch_uri,
-                    timeout=self.etos.config.get("TEST_SUITE_TIMEOUT"),
-                    headers=json_header,
-                )
-                response = {}
-                for response in json_response:
-                    break
-                self.__test_suite = response
+                if batch is not None and batch_uri is not None:
+                    raise Exception(
+                        "Only one of 'batches' or 'batchesUri' shall be set"
+                    )
+                if batch is not None:
+                    self.__test_suite = batch
+                elif batch_uri is not None:
+                    json_header = {"Accept": "application/json"}
+                    json_response = self.etos.http.wait_for_request(
+                        batch_uri,
+                        timeout=self.etos.config.get("TEST_SUITE_TIMEOUT"),
+                        headers=json_header,
+                    )
+                    response = {}
+                    for response in json_response:
+                        break
+                    self.__test_suite = response
             except AttributeError:
                 pass
         return self.__test_suite if self.__test_suite else []

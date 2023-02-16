@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright 2020-2023 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,7 +15,6 @@
 # limitations under the License.
 """Test suite module."""
 import json
-from etos_lib.lib.database import Database
 
 # pylint:disable=line-too-long
 
@@ -127,7 +126,9 @@ class TestSuite:
         }
     """
 
-    def __init__(self, test_suite_name, test_runners, environment_provider_config):
+    def __init__(
+        self, test_suite_name, test_runners, environment_provider_config, database
+    ):
         """Initialize test suite representation.
 
         :param test_suite_name: Name of the test suite.
@@ -136,12 +137,15 @@ class TestSuite:
         :type test_runners: dict
         :param environment_provider_config: Environment provider config.
         :type environment_provider_config: :obj:`environment_provider.lib.config.Config`
+        :param database: Database class to use.
+        :type database: class
         """
         self._suite = {}
         self.test_suite_name = test_suite_name
         self.test_runners = test_runners
         self.environment_provider_config = environment_provider_config
-        self.database = Database(expire=172800)  # 48h
+        self.expiry = 172800  # 48h
+        self.database = database
 
     def add(self, name, value):
         """Add a new item to suite.
@@ -180,6 +184,9 @@ class TestSuite:
                 self.database.write(
                     sub_suite["executor"]["instructions"]["identifier"],
                     json.dumps(sub_suite),
+                )
+                self.database.writer.expire(
+                    sub_suite["executor"]["instructions"]["identifier"], self.expiry
                 )
                 suites.append(sub_suite)
                 counter += 1

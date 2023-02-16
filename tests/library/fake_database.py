@@ -1,4 +1,4 @@
-# Copyright 2021 Axis Communications AB.
+# Copyright 2021-2023 Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -68,6 +68,10 @@ class FakeReader:
     def hget(self, key, _id):
         """Get hash from database."""
         return self._reader_dict.get(key + _id)
+
+    def hgetall(self, key):
+        """Get all hash values from database."""
+        return {k: v for k, v in self._reader_dict.items() if k.startswith(key)}
 
 
 class FakeDatabase(Database):
