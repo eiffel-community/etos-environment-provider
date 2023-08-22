@@ -549,6 +549,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         except Exception as exception:  # pylint:disable=broad-except
             self.cleanup()
             traceback.print_exc()
+            self.logger.error("Failed creating environment for test. %r", extra={"user_log": True})
             return {"error": str(exception), "details": traceback.format_exc()}
         finally:
             if self.etos.publisher is not None and not self.etos.debug.disable_sending_events:
