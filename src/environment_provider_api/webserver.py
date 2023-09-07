@@ -19,6 +19,7 @@ import logging
 import traceback
 import json
 from uuid import UUID
+from pathlib import Path
 import falcon
 
 from etos_lib.etos import ETOS
@@ -282,6 +283,8 @@ class Configure:
 class Register:  # pylint:disable=too-few-public-methods
     """Register one or several new providers to the environment provider."""
 
+    logger = logging.getLogger(__name__)
+
     def __init__(self, database):
         """Init with a db class.
 
@@ -289,6 +292,42 @@ class Register:  # pylint:disable=too-few-public-methods
         :type database: class
         """
         self.database = database
+        self.load_providers_from_disk()
+
+    def providers(self, directory):
+        """Read provider json files from a directory.
+
+        :param directory: Directory to read provider json files from.
+        :type directory: str
+        :return: An iterator of the json files.
+        :rtype: Iterator[dict]
+        """
+        try:
+            filenames = os.listdir(directory)
+        except FileNotFoundError:
+            return
+        for provider_filename in filenames:
+            if not directory.joinpath(provider_filename).is_file():
+                self.logger.warn("Not a file: %r", provider_filename)
+                continue
+            with directory.joinpath(provider_filename).open() as provider_file:
+                yield json.load(provider_file)
+
+    def load_providers_from_disk(self):
+        """Register provider files from file system, should environment variables be set."""
+        etos = ETOS("ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider")
+        jsontas = JsonTas()
+        registry = ProviderRegistry(etos, jsontas, self.database())
+
+        if os.getenv("EXECUTION_SPACE_PROVIDERS"):
+            for provider in self.providers(Path(os.getenv("EXECUTION_SPACE_PROVIDERS"))):
+                register(registry, execution_space_provider=provider)
+        if os.getenv("LOG_AREA_PROVIDERS"):
+            for provider in self.providers(Path(os.getenv("LOG_AREA_PROVIDERS"))):
+                register(registry, log_area_provider=provider)
+        if os.getenv("IUT_PROVIDERS"):
+            for provider in self.providers(Path(os.getenv("IUT_PROVIDERS"))):
+                register(registry, iut_provider=provider)
 
     def on_post(self, request, response):
         """Register a new provider.
