@@ -102,7 +102,6 @@ class ProviderRegistry:
         """
         self.logger.info("Getting log area provider %r", provider_id)
         provider = self.database.reader.hget("EnvironmentProvider:LogAreaProviders", provider_id)
-        self.logger.debug(provider)
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
@@ -119,7 +118,6 @@ class ProviderRegistry:
         """
         self.logger.info("Getting iut provider %r", provider_id)
         provider = self.database.reader.hget("EnvironmentProvider:IUTProviders", provider_id)
-        self.logger.debug(provider)
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
@@ -138,7 +136,6 @@ class ProviderRegistry:
         provider = self.database.reader.hget(
             "EnvironmentProvider:ExecutionSpaceProviders", provider_id
         )
-        self.logger.debug(provider)
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
@@ -150,7 +147,7 @@ class ProviderRegistry:
         :type ruleset: dict
         """
         data = self.validate(ruleset, log_area_provider_schema(ruleset))
-        self.logger.info("Registering %r", data)
+        self.logger.info("Registering %r", data["log"]["id"])
         self.database.writer.hdel("EnvironmentProvider:LogAreaProviders", data["log"]["id"])
         self.database.writer.hset(
             "EnvironmentProvider:LogAreaProviders", data["log"]["id"], json.dumps(data)
@@ -163,7 +160,7 @@ class ProviderRegistry:
         :type ruleset: dict
         """
         data = self.validate(ruleset, iut_provider_schema(ruleset))
-        self.logger.info("Registering %r", data)
+        self.logger.info("Registering %r", data["iut"]["id"])
         self.database.writer.hdel("EnvironmentProvider:IUTProviders", data["iut"]["id"])
         self.database.writer.hset(
             "EnvironmentProvider:IUTProviders", data["iut"]["id"], json.dumps(data)
@@ -176,7 +173,7 @@ class ProviderRegistry:
         :type ruleset: dict
         """
         data = self.validate(ruleset, execution_space_provider_schema(ruleset))
-        self.logger.info("Registering %r", data)
+        self.logger.info("Registering %r", data["execution_space"]["id"])
         self.database.writer.hdel(
             "EnvironmentProvider:ExecutionSpaceProviders", data["execution_space"]["id"]
         )
@@ -197,7 +194,6 @@ class ProviderRegistry:
         provider_json = self.database.reader.hget(
             f"EnvironmentProvider:{suite_id}", "ExecutionSpaceProvider"
         )
-        self.logger.info(provider_json)
         if provider_json:
             provider = ExecutionSpaceProvider(
                 self.etos,
@@ -217,7 +213,6 @@ class ProviderRegistry:
         :rtype: :obj:`environment_provider.iut.iut_provider.IutProvider`
         """
         provider_str = self.database.reader.hget(f"EnvironmentProvider:{suite_id}", "IUTProvider")
-        self.logger.info(provider_str)
         if provider_str:
             provider_json = json.loads(provider_str, object_pairs_hook=OrderedDict)
             provider = IutProvider(self.etos, self.jsontas, provider_json.get("iut"))
@@ -236,7 +231,6 @@ class ProviderRegistry:
         provider_json = self.database.reader.hget(
             f"EnvironmentProvider:{suite_id}", "LogAreaProvider"
         )
-        self.logger.info(provider_json)
         if provider_json:
             provider = LogAreaProvider(
                 self.etos,
