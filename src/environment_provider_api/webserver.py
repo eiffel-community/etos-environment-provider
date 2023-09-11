@@ -298,7 +298,7 @@ class Register:  # pylint:disable=too-few-public-methods
         """Read provider json files from a directory.
 
         :param directory: Directory to read provider json files from.
-        :type directory: str
+        :type directory: :obj:`Path`
         :return: An iterator of the json files.
         :rtype: Iterator[dict]
         """
