@@ -20,6 +20,7 @@ import logging
 import traceback
 import json
 import time
+from tempfile import NamedTemporaryFile
 from datetime import datetime
 from threading import Lock
 from copy import deepcopy
@@ -37,6 +38,7 @@ from .lib.json_dumps import JsonDumps
 from .lib.encrypt import Encrypt
 from .lib.uuid_generate import UuidGenerate
 from .lib.join import Join
+from .lib.log_area import LogArea
 
 logging.getLogger("pika").setLevel(logging.WARNING)
 
@@ -289,26 +291,44 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             self.logger.error(json_data)
             raise
 
-    def send_environment_events(self, sub_suite):
+    def send_environment_events(self, url, sub_suite):
         """Send environment defined events for the created sub suites.
 
+        :param url: URL to where the sub suite is uploaded.
+        :type url: str
         :param sub_suite: Test suite to send environment defined for.
         :type sub_suite: dict
         """
-        base_url = os.getenv("ETOS_ENVIRONMENT_PROVIDER")
-
         # In a valid sub suite all of these keys must exist
         # making this a safe assumption
         identifier = sub_suite["executor"]["instructions"]["identifier"]
         event = self.etos.events.send_environment_defined(
             sub_suite.get("name"),
-            uri=f"{base_url}/sub_suite?id={identifier}",
+            uri=url,
             links={"CONTEXT": self.etos.config.get("environment_provider_context")},
         )
 
         self.database.write(event.meta.event_id, identifier)
         self.database.writer.hset(f"SubSuite:{identifier}", "EventID", event.meta.event_id)
         self.database.writer.hset(f"SubSuite:{identifier}", "Suite", json.dumps(sub_suite))
+
+    def upload_sub_suite(self, sub_suite):
+        """Upload sub suite to log area.
+
+        :param sub_suite: Sub suite to upload to log area.
+        :type sub_suite: dict
+        :return: URI to file uploaded.
+        :rtype: str
+        """
+        try:
+            with NamedTemporaryFile(mode="w", delete=False) as sub_suite_file:
+                json.dump(sub_suite, sub_suite_file)
+            log_area = LogArea(self.etos, sub_suite)
+            return log_area.upload(
+                sub_suite_file.name, f"{sub_suite['name']}.json", sub_suite["test_suite_started_id"]
+            )
+        finally:
+            os.remove(sub_suite_file.name)
 
     def checkout_an_execution_space(self):
         """Check out a single execution space.
@@ -435,7 +455,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     sub_suite = test_suite.add(
                         test_runner, iut, suite, test_runners[test_runner]["priority"]
                     )
-                    self.send_environment_events(sub_suite)
+                    url = self.upload_sub_suite(sub_suite)
+                    self.send_environment_events(url, sub_suite)
 
                     self.logger.info(
                         "Environment for %r checked out and is ready for use",

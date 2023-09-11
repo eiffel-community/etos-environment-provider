@@ -142,3 +142,11 @@ class GraphQLHandler(BaseHTTPRequestHandler):
         self.end_headers()
         response_content = json.dumps(response)
         self.wfile.write(response_content.encode("utf-8"))
+
+    def do_GET(self):
+        """Handle GET requests."""
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.end_headers()
+        response_content = json.dumps({})
+        self.wfile.write(response_content.encode("utf-8"))

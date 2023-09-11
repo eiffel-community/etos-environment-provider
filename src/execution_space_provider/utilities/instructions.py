@@ -35,6 +35,7 @@ class Instructions(DataStructure):  # pylint:disable=too-few-public-methods
         instructions["image"] = self.data.get("image", instructions["image"])
         instructions["identifier"] = str(uuid4())
 
+        # TODO: This shall be removed when ETR uses the EnvironmentDefined event.
         instructions["environment"]["SUB_SUITE_URL"] = (
             f"{instructions['environment']['ETOS_ENVIRONMENT_PROVIDER']}"
             f"/sub_suite?id={instructions['identifier']}"

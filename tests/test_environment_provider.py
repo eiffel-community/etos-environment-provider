@@ -93,7 +93,12 @@ LOG_AREA_PROVIDER = {
     "log": {
         "id": "default",
         "list": {
-            "possible": {"$expand": {"value": {}, "to": "$amount"}},
+            "possible": {
+                "$expand": {
+                    "value": {"upload": {"url": "$dataset.host", "method": "GET"}},
+                    "to": "$amount",
+                }
+            },
             "available": "$this.possible",
         },
     }
@@ -136,7 +141,6 @@ class TestEnvironmentProvider(unittest.TestCase):
 
         database = FakeDatabase()
         database.write(f"EnvironmentProvider:{suite_id}", json.dumps(tercc))
-        database.write(f"EnvironmentProvider:{suite_id}Dataset", json.dumps({}))
         database.write(f"EnvironmentProvider:{suite_id}IUTProvider", json.dumps(IUT_PROVIDER))
         database.write(
             f"EnvironmentProvider:{suite_id}ExecutionSpaceProvider",
@@ -151,6 +155,9 @@ class TestEnvironmentProvider(unittest.TestCase):
 
         self.logger.info("STEP: Start up a fake server.")
         with FakeServer(None, None, handler) as server:
+            database.write(
+                f"EnvironmentProvider:{suite_id}Dataset", json.dumps({"host": server.host})
+            )
             os.environ["ETOS_GRAPHQL_SERVER"] = server.host
             os.environ["ETOS_ENVIRONMENT_PROVIDER"] = server.host
             os.environ["ETOS_API"] = server.host
@@ -185,7 +192,6 @@ class TestEnvironmentProvider(unittest.TestCase):
 
         database = FakeDatabase()
         database.write(f"EnvironmentProvider:{suite_id}", json.dumps(tercc))
-        database.write(f"EnvironmentProvider:{suite_id}Dataset", json.dumps({}))
         database.write(f"EnvironmentProvider:{suite_id}IUTProvider", json.dumps(IUT_PROVIDER))
         database.write(
             f"EnvironmentProvider:{suite_id}ExecutionSpaceProvider",
@@ -200,6 +206,9 @@ class TestEnvironmentProvider(unittest.TestCase):
 
         self.logger.info("STEP: Start up a fake server.")
         with FakeServer(None, None, handler) as server:
+            database.write(
+                f"EnvironmentProvider:{suite_id}Dataset", json.dumps({"host": server.host})
+            )
             os.environ["ETOS_GRAPHQL_SERVER"] = server.host
             os.environ["ETOS_ENVIRONMENT_PROVIDER"] = server.host
             os.environ["ETOS_API"] = server.host
@@ -237,7 +246,6 @@ class TestEnvironmentProvider(unittest.TestCase):
 
         database = FakeDatabase()
         database.write(f"EnvironmentProvider:{suite_id}", json.dumps(tercc))
-        database.write(f"EnvironmentProvider:{suite_id}Dataset", json.dumps({}))
         database.write(f"EnvironmentProvider:{suite_id}IUTProvider", json.dumps(IUT_PROVIDER))
         database.write(
             f"EnvironmentProvider:{suite_id}ExecutionSpaceProvider",
@@ -252,6 +260,9 @@ class TestEnvironmentProvider(unittest.TestCase):
 
         self.logger.info("STEP: Start up a fake server.")
         with FakeServer(None, None, handler) as server:
+            database.write(
+                f"EnvironmentProvider:{suite_id}Dataset", json.dumps({"host": server.host})
+            )
             os.environ["ETOS_GRAPHQL_SERVER"] = server.host
             os.environ["ETOS_ENVIRONMENT_PROVIDER"] = server.host
             os.environ["ETOS_API"] = server.host
@@ -286,7 +297,6 @@ class TestEnvironmentProvider(unittest.TestCase):
 
         database = FakeDatabase()
         database.write(f"EnvironmentProvider:{suite_id}", json.dumps(tercc))
-        database.write(f"EnvironmentProvider:{suite_id}Dataset", json.dumps({}))
         self.logger.info("STEP: Register an IUT provider providing only 1 IUT.")
         database.write(
             f"EnvironmentProvider:{suite_id}IUTProvider",
@@ -305,6 +315,9 @@ class TestEnvironmentProvider(unittest.TestCase):
 
         self.logger.info("STEP: Start up a fake server.")
         with FakeServer(None, None, handler) as server:
+            database.write(
+                f"EnvironmentProvider:{suite_id}Dataset", json.dumps({"host": server.host})
+            )
             os.environ["ETOS_GRAPHQL_SERVER"] = server.host
             os.environ["ETOS_ENVIRONMENT_PROVIDER"] = server.host
             os.environ["ETOS_API"] = server.host
