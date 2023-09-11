@@ -26,6 +26,7 @@ from threading import Lock
 from copy import deepcopy
 from etos_lib.etos import ETOS
 from etos_lib.lib.database import Database
+from etos_lib.lib.events import EiffelEnvironmentDefinedEvent
 from etos_lib.logging.logger import FORMAT_CONFIG
 from jsontas.jsontas import JsonTas
 from .splitter.split import Splitter
@@ -302,10 +303,12 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         # In a valid sub suite all of these keys must exist
         # making this a safe assumption
         identifier = sub_suite["executor"]["instructions"]["identifier"]
-        event = self.etos.events.send_environment_defined(
-            sub_suite.get("name"),
-            uri=url,
-            links={"CONTEXT": self.etos.config.get("environment_provider_context")},
+        event = EiffelEnvironmentDefinedEvent()
+        event.meta.event_id = identifier
+        self.etos.events.send(
+            event,
+            {"CONTEXT": self.etos.config.get("environment_provider_context")},
+            {"name": sub_suite.get("name"), "uri": url},
         )
 
         self.database.write(event.meta.event_id, identifier)

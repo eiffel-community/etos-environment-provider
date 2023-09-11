@@ -34,6 +34,7 @@ class Instructions(DataStructure):  # pylint:disable=too-few-public-methods
         instructions["parameters"].update(self.data.get("parameters", {}))
         instructions["image"] = self.data.get("image", instructions["image"])
         instructions["identifier"] = str(uuid4())
+        instructions["environment"]["ENVIRONMENT_ID"] = instructions["identifier"]
 
         # TODO: This shall be removed when ETR uses the EnvironmentDefined event.
         instructions["environment"]["SUB_SUITE_URL"] = (
@@ -52,4 +53,3 @@ class Instructions(DataStructure):  # pylint:disable=too-few-public-methods
         :param instructions: The instructions dictionary in which to add environments.
         :type instructions: dict
         """
-        instructions["environment"]["ETOS_FEATURE_CLM"] = os.getenv("ETOS_FEATURE_CLM", "true")
