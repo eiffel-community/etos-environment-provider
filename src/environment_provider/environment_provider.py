@@ -303,8 +303,9 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         # In a valid sub suite all of these keys must exist
         # making this a safe assumption
         identifier = sub_suite["executor"]["instructions"]["identifier"]
+        event_id = sub_suite["executor"]["instructions"]["environment"]["ENVIRONMENT_ID"]
         event = EiffelEnvironmentDefinedEvent()
-        event.meta.event_id = identifier
+        event.meta.event_id = event_id
         self.etos.events.send(
             event,
             {"CONTEXT": self.etos.config.get("environment_provider_context")},
