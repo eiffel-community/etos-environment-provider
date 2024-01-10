@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -16,15 +16,20 @@
 """Log area provider utilizing JSONTas."""
 import logging
 import time
-from .list import List
-from .checkout import Checkout
-from .checkin import Checkin
+
+from etos_lib import ETOS
+from jsontas.jsontas import JsonTas
+
 from ..exceptions import (
-    NoLogAreaFound,
-    LogAreaNotAvailable,
     LogAreaCheckoutFailed,
+    LogAreaNotAvailable,
+    NoLogAreaFound,
     NotEnoughLogAreasAvailable,
 )
+from ..log_area import LogArea
+from .checkin import Checkin
+from .checkout import Checkout
+from .list import List
 
 
 class JSONTasProvider:
@@ -32,15 +37,12 @@ class JSONTasProvider:
 
     logger = logging.getLogger("LogAreaProvider")
 
-    def __init__(self, etos, jsontas, ruleset):
+    def __init__(self, etos: ETOS, jsontas: JsonTas, ruleset: dict) -> None:
         """Initialize log area provider.
 
         :param etos: ETOS library instance.
-        :type etos: :obj:`etos_lib.etos.Etos`
         :param jsontas: JSONTas instance used to evaluate the rulesets.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param ruleset: JSONTas ruleset for handling log areas.
-        :type ruleset: dict
         """
         self.etos = etos
         self.jsontas = jsontas
@@ -50,53 +52,47 @@ class JSONTasProvider:
         self.context = self.etos.config.get("environment_provider_context")
         self.logger.info("Initialized log area provider %r", self.id)
 
-    def checkout(self, available_log_areas):
+    def checkout(self, available_log_areas: list[LogArea]) -> list[LogArea]:
         """Checkout a number of log areas from an log area provider.
 
         :param available_log_areas: Log areas to checkout.
-        :type available_log_areas: list
         :return: Checked out log areas.
-        :rtype: list
         """
         checkout_log_areas = Checkout(self.jsontas, self.ruleset.get("checkout"))
         return checkout_log_areas.checkout(available_log_areas)
 
-    def list(self, amount):
+    def list_log_areas(self, amount: int) -> list[LogArea]:
         """List log areas in order to find out which are available or not.
 
         :param amount: Number of log areas to list.
-        :type amount: int
         :return: Available log areas in the log area provider.
-        :rtype: list
         """
         list_log_areas = List(self.id, self.jsontas, self.ruleset.get("list"))
         return list_log_areas.list(amount)
 
-    def checkin_all(self):
+    def checkin_all(self) -> None:
         """Check in all checked out log areas."""
         checkin_log_areas = Checkin(self.jsontas, self.ruleset.get("checkin"))
         checkin_log_areas.checkin_all()
 
-    def checkin(self, log_area):
+    def checkin(self, log_area: LogArea) -> None:
         """Check in a single log area, returning it to the log area provider.
 
         :param log_area: Log area to checkin.
-        :type log_area: :obj:`environment_provider.logs.log_area.LogArea`
         """
         checkin_log_areas = Checkin(self.jsontas, self.ruleset.get("checkin"))
         checkin_log_areas.checkin(log_area)
 
-    def _wait_for_and_checkout_log_areas(self, minimum_amount=0, maximum_amount=100):
+    def _wait_for_and_checkout_log_areas(
+        self, minimum_amount: int = 0, maximum_amount: int = 100
+    ) -> list[LogArea]:
         """Wait for and checkout log areas from an log area provider.
 
         :raises: LogAreaNotAvailable: If there are no available log areas after timeout.
 
         :param minimum_amount: Minimum amount of log areas to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of log areas to checkout.
-        :type maximum_amount: int
         :return: List of checked out log areas.
-        :rtype: list
         """
         timeout = time.time() + self.etos.config.get("WAIT_FOR_LOG_AREA_TIMEOUT")
         first_iteration = True
@@ -106,7 +102,7 @@ class JSONTasProvider:
             else:
                 time.sleep(5)
             try:
-                available_log_areas = self.list(maximum_amount)
+                available_log_areas = self.list_log_areas(maximum_amount)
                 self.logger.info("Available log areas:")
                 for log_area in available_log_areas:
                     self.logger.info(log_area)
@@ -143,7 +139,9 @@ class JSONTasProvider:
             raise LogAreaNotAvailable(self.id)
         return checked_out_log_areas
 
-    def wait_for_and_checkout_log_areas(self, minimum_amount=0, maximum_amount=100):
+    def wait_for_and_checkout_log_areas(
+        self, minimum_amount: int = 0, maximum_amount: int = 100
+    ) -> list[LogArea]:
         """Wait for and checkout log areas from an log area provider.
 
         See: `_wait_for_and_checkout_log_areas`
@@ -151,11 +149,8 @@ class JSONTasProvider:
         :raises: LogAreaNotAvailable: If there are no available log areas after timeout.
 
         :param minimum_amount: Minimum amount of log areas to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of log areas to checkout.
-        :type maximum_amount: int
         :return: List of checked out log areas.
-        :rtype: list
         """
         error = None
         triggered = None

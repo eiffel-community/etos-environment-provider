@@ -14,17 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Environment provider log area handler."""
-import os
 import logging
-import traceback
+import os
 import time
+import traceback
 from copy import deepcopy
 from json.decoder import JSONDecodeError
+from typing import IO, Iterator, Optional, Union
 
 from cryptography.fernet import Fernet
+from etos_lib import ETOS
+from requests import Response
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 from requests.exceptions import HTTPError
 from urllib3.exceptions import MaxRetryError, NewConnectionError
+
+# pylint:disable=too-many-arguments
 
 
 class LogArea:  # pylint:disable=too-few-public-methods
@@ -32,27 +37,23 @@ class LogArea:  # pylint:disable=too-few-public-methods
 
     logger = logging.getLogger(__name__)
 
-    def __init__(self, etos, sub_suite):
+    def __init__(self, etos: ETOS, sub_suite: dict) -> None:
         """Initialize with an ETOS instance.
 
         :param etos: Instance of ETOS library.
-        :type etos: :obj:`etos_lib.etos.Etos`
+        :param sub_suite: The sub suite to upload.
         """
         self.etos = etos
         self.suite_name = sub_suite.get("name").replace(" ", "-")
         self.log_area = sub_suite.get("log_area")
 
-    def upload(self, log, name, folder):
+    def upload(self, log: str, name: str, folder: str) -> str:
         """Upload log to a storage location.
 
         :param log: Path to the log to upload.
-        :type log: str
         :param name: Name of file to upload.
-        :type name: str
         :param folder: Folder to upload to.
-        :type folder: str
         :return: URI where log was uploaded to.
-        :rtype: str
         """
         upload = deepcopy(self.log_area.get("upload"))
         data = {"name": name, "folder": folder}
@@ -85,25 +86,24 @@ class LogArea:  # pylint:disable=too-few-public-methods
         return upload["url"]
 
     def __retry_upload(
-        self, verb, url, log_file, timeout=None, as_json=True, **requests_kwargs
-    ):  # pylint:disable=too-many-arguments
+        self,
+        verb: str,
+        url: str,
+        log_file: IO,
+        timeout: Optional[int] = None,
+        as_json: bool = True,
+        **requests_kwargs: dict,
+    ) -> Iterator[Union[Response, dict]]:
         """Attempt to connect to url for x time.
 
         :param verb: Which HTTP verb to use. GET, PUT, POST
                      (DELETE omitted)
-        :type verb: str
         :param url: URL to retry upload request
-        :type url: str
         :param log_file: Opened log file to upload.
-        :type log_file: file
         :param timeout: How long, in seconds, to retry request.
-        :type timeout: int or None
         :param as_json: Whether or not to return json instead of response.
-        :type as_json: bool
         :param request_kwargs: Keyword arguments for the requests command.
-        :type request_kwargs: dict
         :return: HTTP response or json.
-        :rtype: Response or dict
         """
         if timeout is None:
             timeout = self.etos.debug.default_http_timeout
@@ -132,13 +132,11 @@ class LogArea:  # pylint:disable=too-few-public-methods
         else:
             raise ConnectionError(f"Unable to {verb} {url} with params {requests_kwargs}")
 
-    def __decrypt(self, password):
+    def __decrypt(self, password: Union[str, dict]) -> str:
         """Decrypt a password using an encryption key.
 
         :param password: Password to decrypt.
-        :type password: str or dict
         :return: Decrypted password
-        :rtype: str
         """
         key = os.getenv("ETOS_ENCRYPTION_KEY")
         if key is None:
@@ -150,17 +148,15 @@ class LogArea:  # pylint:disable=too-few-public-methods
             return password
         return Fernet(key).decrypt(password_value).decode()
 
-    def __auth(self, username, password, type="basic"):  # pylint:disable=redefined-builtin
+    def __auth(
+        self, username: str, password: str, type: str = "basic"  # pylint:disable=redefined-builtin
+    ) -> Union[HTTPBasicAuth, HTTPDigestAuth]:
         """Create an authentication for HTTP request.
 
         :param username: Username to authenticate.
-        :type username: str
         :param password: Password to authenticate with.
-        :type password: str
         :param type: Type of authentication. 'basic' or 'digest'.
-        :type type: str
         :return: Authentication method.
-        :rtype: :obj:`requests.auth`
         """
         password = self.__decrypt(password)
         if type.lower() == "basic":

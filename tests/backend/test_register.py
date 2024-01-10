@@ -1,4 +1,4 @@
-# Copyright 2021 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,30 +14,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for the register backend system."""
+import json
 import logging
 import unittest
-import json
 
 from etos_lib import ETOS
+from etos_lib.lib.config import Config
 from jsontas.jsontas import JsonTas
 
 from environment_provider.lib.registry import ProviderRegistry
 from environment_provider_api.backend.register import (
-    register,
-    get_iut_provider,
     get_execution_space_provider,
+    get_iut_provider,
     get_log_area_provider,
     json_to_dict,
+    register,
 )
-
-from tests.library.fake_request import FakeRequest
 from tests.library.fake_database import FakeDatabase
+from tests.library.fake_request import FakeRequest
 
 
 class TestRegisterBackend(unittest.TestCase):
     """Test the register backend."""
 
     logger = logging.getLogger(__name__)
+
+    def tearDown(self):
+        """Reset all globally stored data for the next test."""
+        Config().reset()
 
     def test_iut_provider(self):
         """Test that the register backend can return IUT provider.
@@ -208,6 +212,7 @@ class TestRegisterBackend(unittest.TestCase):
             2. Verify that the IUT provider was stored in the database.
         """
         fake_database = FakeDatabase()
+        Config().set("database", fake_database)
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         jsontas = JsonTas()
         provider = {
@@ -216,13 +221,13 @@ class TestRegisterBackend(unittest.TestCase):
                 "list": {"possible": [], "available": []},
             }
         }
-        provider_registry = ProviderRegistry(etos, jsontas, fake_database)
+        provider_registry = ProviderRegistry(etos, jsontas, None)
         self.logger.info("STEP: Register an IUT provider with the register backend.")
         response = register(provider_registry, iut_provider=provider)
 
         self.logger.info("STEP: Verify that the IUT provider was stored in the database.")
         stored_provider = json.loads(
-            fake_database.reader.hget("EnvironmentProvider:IUTProviders", "iut_provider_test")
+            fake_database.get("/environment/provider/iut/iut_provider_test")[0]
         )
         self.assertDictEqual(stored_provider, provider)
         self.assertTrue(response)
@@ -238,6 +243,7 @@ class TestRegisterBackend(unittest.TestCase):
             2. Verify that the log area provider was stored in the database.
         """
         fake_database = FakeDatabase()
+        Config().set("database", fake_database)
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         jsontas = JsonTas()
         provider = {
@@ -246,15 +252,13 @@ class TestRegisterBackend(unittest.TestCase):
                 "list": {"available": [], "possible": []},
             }
         }
-        provider_registry = ProviderRegistry(etos, jsontas, fake_database)
+        provider_registry = ProviderRegistry(etos, jsontas, None)
         self.logger.info("STEP: Register a log area provider with the register backend.")
         response = register(provider_registry, log_area_provider=provider)
 
         self.logger.info("STEP: Verify that the log area provider was stored in the database.")
         stored_provider = json.loads(
-            fake_database.reader.hget(
-                "EnvironmentProvider:LogAreaProviders", "log_area_provider_test"
-            )
+            fake_database.get("/environment/provider/log-area/log_area_provider_test")[0]
         )
         self.assertDictEqual(stored_provider, provider)
         self.assertTrue(response)
@@ -270,6 +274,7 @@ class TestRegisterBackend(unittest.TestCase):
             2. Verify that the execution space provider was stored in the database.
         """
         fake_database = FakeDatabase()
+        Config().set("database", fake_database)
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         jsontas = JsonTas()
         provider = {
@@ -278,19 +283,15 @@ class TestRegisterBackend(unittest.TestCase):
                 "list": {"available": [{"identifier": "123"}], "possible": []},
             }
         }
-        provider_registry = ProviderRegistry(etos, jsontas, fake_database)
+        provider_registry = ProviderRegistry(etos, jsontas, None)
         self.logger.info("STEP: Register an execution space provider with the register backend.")
         response = register(provider_registry, execution_space_provider=provider)
 
         self.logger.info(
             "STEP: Verify that the execution space provider was stored in the database."
         )
-        stored_provider = json.loads(
-            fake_database.reader.hget(
-                "EnvironmentProvider:ExecutionSpaceProviders",
-                "execution_space_provider_test",
-            )
-        )
+        path = "/environment/provider/execution-space/execution_space_provider_test"
+        stored_provider = json.loads(fake_database.get(path)[0])
         self.assertDictEqual(stored_provider, provider)
         self.assertTrue(response)
 
@@ -305,6 +306,7 @@ class TestRegisterBackend(unittest.TestCase):
             2. Verify that the providers were stored in the database.
         """
         fake_database = FakeDatabase()
+        Config().set("database", fake_database)
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         jsontas = JsonTas()
         test_iut_provider = {
@@ -325,7 +327,7 @@ class TestRegisterBackend(unittest.TestCase):
                 "list": {"available": [], "possible": []},
             }
         }
-        provider_registry = ProviderRegistry(etos, jsontas, fake_database)
+        provider_registry = ProviderRegistry(etos, jsontas, None)
         self.logger.info("STEP: Register one of each provider with the register backend.")
         response = register(
             provider_registry,
@@ -335,24 +337,18 @@ class TestRegisterBackend(unittest.TestCase):
         )
 
         self.logger.info("STEP: Verify that the providers were stored in the database.")
-        stored_execution_space_provider = json.loads(
-            fake_database.reader.hget(
-                "EnvironmentProvider:ExecutionSpaceProviders",
-                "execution_space_provider_test",
-            )
-        )
+        path = "/environment/provider/execution-space/execution_space_provider_test"
+        stored_execution_space_provider = json.loads(fake_database.get(path)[0])
         self.assertDictEqual(
             stored_execution_space_provider,
             test_execution_space_provider,
         )
         stored_log_area_provider = json.loads(
-            fake_database.reader.hget(
-                "EnvironmentProvider:LogAreaProviders", "log_area_provider_test"
-            )
+            fake_database.get("/environment/provider/log-area/log_area_provider_test")[0]
         )
         self.assertDictEqual(stored_log_area_provider, test_log_area_provider)
         stored_iut_provider = json.loads(
-            fake_database.reader.hget("EnvironmentProvider:IUTProviders", "iut_provider_test")
+            fake_database.get("/environment/provider/iut/iut_provider_test")[0]
         )
         self.assertDictEqual(stored_iut_provider, test_iut_provider)
         self.assertTrue(response)
@@ -368,9 +364,10 @@ class TestRegisterBackend(unittest.TestCase):
             2. Verify that the register backend return False.
         """
         fake_database = FakeDatabase()
+        Config().set("database", fake_database)
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         jsontas = JsonTas()
-        provider_registry = ProviderRegistry(etos, jsontas, fake_database)
+        provider_registry = ProviderRegistry(etos, jsontas, None)
 
         self.logger.info("STEP: Register no provider with the register backend.")
         response = register(provider_registry)

@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,6 +15,7 @@
 # limitations under the License.
 """ETOS log area provider module."""
 import pathlib
+
 from .log_area_provider import LogAreaProvider
 
 __all__ = ["LogAreaProvider", "log_area_provider_schema"]
@@ -27,11 +28,10 @@ EXTERNAL_LOG_AREA_PROVIDER_SCHEMA = (
 )
 
 
-def log_area_provider_schema(ruleset):
+def log_area_provider_schema(ruleset: dict) -> pathlib.Path:
     """Get log area provider schema for json validation.
 
     :param ruleset: Ruleset to get a log area provider schema for.
-    :type ruleset: dict
     """
     if ruleset.get("log", {}).get("type", "jsontas") == "external":
         return EXTERNAL_LOG_AREA_PROVIDER_SCHEMA

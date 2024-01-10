@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,31 +14,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """GraphQL request handler module."""
+from typing import Iterator, Optional
+
+from etos_lib import ETOS
 
 
-def request(etos, query):
+def request(etos: ETOS, query: str) -> Iterator[dict]:
     """Request graphql in a generator.
 
     :param etos: ETOS library instance.
-    :type etos: :obj:`etos_lib.etos.Etos`
     :param query: Query to send to graphql.
-    :type query: str
-    :return: Generator
-    :rtype: generator
+    :return: Iterator
     """
     wait_generator = etos.utils.wait(etos.graphql.execute, query=query)
     yield from wait_generator
 
 
-def request_tercc(etos, suite_id):
+def request_tercc(etos: ETOS, suite_id: str) -> Optional[dict]:
     """Request a test execution recipe collection created event from graphql.
 
     :param etos: ETOS library instance.
-    :type etos: :obj:`etos_lib.etos.Etos`
     :param suite_id: ID of execution recipe to request.
-    :type suite_id: str
     :return: Response from graphql or None
-    :rtype: dict or None
     """
     query = """
 {
@@ -81,15 +78,12 @@ def request_tercc(etos, suite_id):
     return None
 
 
-def request_activity_triggered(etos, suite_id):
+def request_activity_triggered(etos: ETOS, suite_id: str) -> Optional[dict]:
     """Request an activiy triggered event from graphql.
 
     :param etos: ETOS library instance.
-    :type etos: :obj:`etos_lib.etos.Etos`
     :param suite_id: ID of execution recipe the activity triggered links to.
-    :type suite_id: str
     :return: Response from graphql or None
-    :rtype: dict or None
     """
     query = """
 {
@@ -110,7 +104,7 @@ def request_activity_triggered(etos, suite_id):
     return None
 
 
-def request_artifact_published(etos, artifact_id):
+def request_artifact_published(etos: ETOS, artifact_id: str) -> Optional[dict]:
     """Request an artifact published event from graphql.
 
     :param etos: ETOS library instance.
@@ -142,15 +136,12 @@ def request_artifact_published(etos, artifact_id):
     return None
 
 
-def request_main_suite(etos, main_suite_id):
+def request_main_suite(etos: ETOS, main_suite_id: str) -> Optional[dict]:
     """Request a test suite started event from graphql.
 
     :param etos: ETOS library instance.
-    :type etos: :obj:`etos_lib.etos.Etos`
     :param main_suite_id: ID of main suite to get from ER.
-    :type main_suite_id: str
     :return: Response from graphql or None
-    :rtype: dict or None
     """
     query = """
 {

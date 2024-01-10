@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -16,15 +16,20 @@
 """Execution space provider utilizing JSONTas."""
 import logging
 import time
-from .list import List
-from .checkout import Checkout
-from .checkin import Checkin
+
+from etos_lib import ETOS
+from jsontas.jsontas import JsonTas
+
 from ..exceptions import (
-    NoExecutionSpaceFound,
-    ExecutionSpaceNotAvailable,
     ExecutionSpaceCheckoutFailed,
+    ExecutionSpaceNotAvailable,
+    NoExecutionSpaceFound,
     NotEnoughExecutionSpacesAvailable,
 )
+from ..execution_space import ExecutionSpace
+from .checkin import Checkin
+from .checkout import Checkout
+from .list import List
 
 
 class JSONTasProvider:
@@ -32,15 +37,12 @@ class JSONTasProvider:
 
     logger = logging.getLogger("ExecutionSpaceProvider")
 
-    def __init__(self, etos, jsontas, ruleset):
+    def __init__(self, etos: ETOS, jsontas: JsonTas, ruleset: dict) -> None:
         """Initialize execution space provider.
 
         :param etos: ETOS library instance.
-        :type etos: :obj:`etos_lib.etos.Etos`
         :param jsontas: JSONTas instance used to evaluate the rulesets.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param ruleset: JSONTas ruleset for handling execution spaces.
-        :type ruleset: dict
         """
         self.etos = etos
         self.jsontas = jsontas
@@ -50,55 +52,48 @@ class JSONTasProvider:
         self.context = self.etos.config.get("environment_provider_context")
         self.logger.info("Initialized execution space provider %r", self.id)
 
-    def checkout(self, available_execution_spaces):
+    def checkout(self, available_execution_spaces: list[ExecutionSpace]) -> list[ExecutionSpace]:
         """Checkout a number of execution spaces from an execution space provider.
 
         :param available_execution_spaces: Execution spaces to checkout.
-        :type available_execution_spaces: list
         :return: Checked out execution spaces.
-        :rtype: list
         """
         checkout_execution_spaces = Checkout(self.jsontas, self.ruleset.get("checkout"))
         return checkout_execution_spaces.checkout(available_execution_spaces)
 
-    def list(self, amount):
+    def list_execution_spaces(self, amount: int) -> list[ExecutionSpace]:
         """List execution spaces in order to find out which are available.
 
         :param amount: Number of execution spaces to list.
-        :type amount: int
         :return: Available execution spaces in the execution space provider.
-        :rtype: list
         """
         list_execution_spaces = List(self.id, self.etos, self.jsontas, self.ruleset.get("list"))
         return list_execution_spaces.list(amount)
 
-    def checkin_all(self):
+    def checkin_all(self) -> None:
         """Check in all checked out execution spaces."""
         checkin_execution_spaces = Checkin(self.jsontas, self.ruleset.get("checkin"))
         checkin_execution_spaces.checkin_all()
 
-    def checkin(self, execution_space):
+    def checkin(self, execution_space: ExecutionSpace) -> None:
         """Check in a single execution space, returning it to the execution space provider.
 
         :param execution_space: Execution space to checkin.
-        :type execution_space:
-            :obj:`environment_provider.execution_space.execution_space.ExecutionSpace`
         """
         checkin_execution_spaces = Checkin(self.jsontas, self.ruleset.get("checkin"))
         checkin_execution_spaces.checkin(execution_space)
 
-    def _wait_for_and_checkout_execution_spaces(self, minimum_amount=0, maximum_amount=100):
+    def _wait_for_and_checkout_execution_spaces(
+        self, minimum_amount: int = 0, maximum_amount: int = 100
+    ) -> list[ExecutionSpace]:
         """Wait for and checkout execution spaces from an execution space provider.
 
         :raises: ExecutionSpaceNotAvailable: If there are no available execution spaces after
                                              timeout.
 
         :param minimum_amount: Minimum amount of execution spaces to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of execution spaces to checkout.
-        :type maximum_amount: int
         :return: List of checked out execution spaces.
-        :rtype: list
         """
         timeout = time.time() + self.etos.config.get("WAIT_FOR_EXECUTION_SPACE_TIMEOUT")
         first_iteration = True
@@ -108,7 +103,7 @@ class JSONTasProvider:
             else:
                 time.sleep(5)
             try:
-                available_execution_spaces = self.list(maximum_amount)
+                available_execution_spaces = self.list_execution_spaces(maximum_amount)
                 self.logger.info("Available execution spaces:")
                 for execution_space in available_execution_spaces:
                     self.logger.info(execution_space)
@@ -150,7 +145,9 @@ class JSONTasProvider:
             raise ExecutionSpaceNotAvailable(self.id)
         return checked_out_execution_spaces
 
-    def wait_for_and_checkout_execution_spaces(self, minimum_amount=0, maximum_amount=100):
+    def wait_for_and_checkout_execution_spaces(
+        self, minimum_amount: int = 0, maximum_amount: int = 100
+    ) -> list[ExecutionSpace]:
         """Wait for and checkout execution spaces from an execution space provider.
 
         See: `_wait_for_and_checkout_execution_spaces`
@@ -159,11 +156,8 @@ class JSONTasProvider:
                                              timeout.
 
         :param minimum_amount: Minimum amount of execution spaces to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of execution spaces to checkout.
-        :type maximum_amount: int
         :return: List of checked out execution spaces.
-        :rtype: list
         """
         error = None
         triggered = None

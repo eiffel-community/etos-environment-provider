@@ -1,4 +1,4 @@
-# Copyright 2021-2023 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -16,9 +16,9 @@
 """A fake server implementation for testing remote requests."""
 import json
 import logging
-from threading import Thread
 import socket
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from threading import Thread
 
 import requests
 

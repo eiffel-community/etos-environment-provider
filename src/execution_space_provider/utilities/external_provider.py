@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,13 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """External Execution Space provider."""
-import os
-from json.decoder import JSONDecodeError
-import time
 import logging
+import os
+import time
 from copy import deepcopy
+from json.decoder import JSONDecodeError
 
 import requests
+from etos_lib import ETOS
+from jsontas.jsontas import JsonTas
+from packageurl import PackageURL
+
 from environment_provider.lib.encrypt import encrypt
 
 from ..exceptions import (
@@ -51,15 +55,12 @@ class ExternalProvider:
 
     logger = logging.getLogger("External ExecutionSpaceProvider")
 
-    def __init__(self, etos, jsontas, ruleset):
+    def __init__(self, etos: ETOS, jsontas: JsonTas, ruleset: dict) -> None:
         """Initialize Execution Space provider.
 
         :param etos: ETOS library instance.
-        :type etos: :obj:`etos_lib.etos.Etos`
         :param jsontas: JSONTas instance used to evaluate the rulesets.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param ruleset: JSONTas ruleset for handling execution spaces.
-        :type ruleset: dict
         """
         self.etos = etos
         self.etos.config.set("execution_spaces", [])
@@ -71,20 +72,17 @@ class ExternalProvider:
         self.logger.info("Initialized external execution space provider %r", self.id)
 
     @property
-    def identity(self):
+    def identity(self) -> PackageURL:
         """IUT Identity.
 
         :return: IUT identity as PURL object.
-        :rtype: :obj:`packageurl.PackageURL`
         """
         return self.dataset.get("identity")
 
-    def checkin(self, execution_space):
+    def checkin(self, execution_space: ExecutionSpace) -> None:
         """Check in execution spaces.
 
         :param execution_space: Execution space to checkin.
-        :type execution_space:
-            :obj:`environment_provider.execution_space.execution_space.ExecutionSpace` or list
         """
         end = self.etos.config.get("WAIT_FOR_EXECUTION_SPACE_TIMEOUT")
         if end is None:
@@ -124,7 +122,7 @@ class ExternalProvider:
                 continue
         raise TimeoutError(f"Unable to stop external provider {self.id!r}")
 
-    def checkin_all(self):
+    def checkin_all(self) -> None:
         """Check in all execution spaces.
 
         This method does the same as 'checkin'. It exists for API consistency.
@@ -132,15 +130,12 @@ class ExternalProvider:
         self.logger.debug("Checking in all checked out execution spaces")
         self.checkin(self.dataset.get("execution_spaces", []))
 
-    def start(self, minimum_amount, maximum_amount):
+    def start(self, minimum_amount: int, maximum_amount: int) -> str:
         """Send a start request to an external execution space provider.
 
         :param minimum_amount: The minimum amount of execution spaces to request.
-        :type minimum_amount: int
         :param maximum_amount: The maximum amount of execution spaces to request.
-        :type maximum_amount: int
         :return: The ID of the external execution space provider request.
-        :rtype: str
         """
         self.logger.debug("Start external execution space provider")
         rabbitmq = self.etos.config.get("rabbitmq")
@@ -191,13 +186,11 @@ class ExternalProvider:
             raise TimeoutError(f"Unable to start external provider {self.id!r}") from http_error
         raise TimeoutError(f"Unable to start external provider {self.id!r}")
 
-    def wait(self, provider_id):
+    def wait(self, provider_id: str) -> dict:
         """Wait for external execution space provider to finish its request.
 
         :param provider_id: The ID of the external execution space provider request.
-        :type provider_id: str
         :return: The response from the external execution space provider.
-        :rtype: dict
         """
         self.logger.debug(
             "Waiting for external execution space provider (%ds timeout)",
@@ -237,11 +230,10 @@ class ExternalProvider:
             )
         return response
 
-    def check_error(self, response):
+    def check_error(self, response: dict) -> None:
         """Check response for errors and try to translate them to something usable.
 
         :param response: The response from the external execution space provider.
-        :type response: dict
         """
         self.logger.debug("Checking response from external execution space provider")
         try:
@@ -263,31 +255,28 @@ class ExternalProvider:
         # If this does not work, propagate JSONDecodeError up the stack.
         self.logger.debug("Status for response %r", response.json().get("status"))
 
-    def build_execution_spaces(self, response):
+    def build_execution_spaces(self, response: dict) -> list[ExecutionSpace]:
         """Build execution space objects from external execution space provider response.
 
         :param response: The response from the external execution space provider.
-        :type response: dict
         :return: A list of execution spaces.
-        :rtype: list
         """
         return [
             ExecutionSpace(provider_id=self.id, **execution_space)
             for execution_space in response.get("execution_spaces", [])
         ]
 
-    def request_and_wait_for_execution_spaces(self, minimum_amount=0, maximum_amount=100):
+    def request_and_wait_for_execution_spaces(
+        self, minimum_amount: int = 0, maximum_amount: int = 100
+    ) -> list[ExecutionSpace]:
         """Wait for execution spaces from an external execution space provider.
 
         :raises: ExecutionSpaceNotAvailable: If there are no available execution spaces after
                                              timeout.
 
         :param minimum_amount: Minimum amount of execution spaces to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of execution spaces to checkout.
-        :type maximum_amount: int
         :return: List of checked out execution spaces.
-        :rtype: list
         """
         try:
             provider_id = self.start(minimum_amount, maximum_amount)
@@ -313,7 +302,9 @@ class ExternalProvider:
             raise
         return execution_spaces
 
-    def wait_for_and_checkout_execution_spaces(self, minimum_amount=0, maximum_amount=100):
+    def wait_for_and_checkout_execution_spaces(
+        self, minimum_amount: int = 0, maximum_amount: int = 100
+    ) -> list[ExecutionSpace]:
         """Wait for execution spaces from an external execution space provider.
 
         See: `request_and_wait_for_execution_spaces`
@@ -322,11 +313,8 @@ class ExternalProvider:
                                              timeout.
 
         :param minimum_amount: Minimum amount of execution spaces to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of execution spaces to checkout.
-        :type maximum_amount: int
         :return: List of checked out execution spaces.
-        :rtype: list
         """
         error = None
         triggered = None

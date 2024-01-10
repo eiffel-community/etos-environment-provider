@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,25 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Integration tests for the external execution space."""
-import os
 import logging
+import os
 import unittest
 
 from etos_lib import ETOS
 from jsontas.jsontas import JsonTas
 from packageurl import PackageURL
 
-from tests.library.fake_server import FakeServer
-
-from execution_space_provider.utilities.external_provider import (
-    ExternalProvider,
-)
 from execution_space_provider.exceptions import (
     ExecutionSpaceCheckinFailed,
     ExecutionSpaceCheckoutFailed,
     ExecutionSpaceNotAvailable,
 )
 from execution_space_provider.execution_space import ExecutionSpace
+from execution_space_provider.utilities.external_provider import ExternalProvider
+from tests.library.fake_server import FakeServer
 
 
 class TestExternalExecutionSpace(unittest.TestCase):

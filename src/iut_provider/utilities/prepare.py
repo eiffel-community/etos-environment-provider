@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,12 +15,15 @@
 # limitations under the License.
 """IUT provider prepare module."""
 import logging
-from threading import Lock
-from multiprocessing.pool import ThreadPool
 from collections import OrderedDict
 from copy import deepcopy
-from jsontas.jsontas import JsonTas
+from multiprocessing.pool import ThreadPool
+from threading import Lock
+
 from etos_lib.logging.logger import FORMAT_CONFIG
+from jsontas.jsontas import JsonTas
+
+from ..iut import Iut
 
 
 class Prepare:  # pylint:disable=too-few-public-methods
@@ -29,13 +32,11 @@ class Prepare:  # pylint:disable=too-few-public-methods
     logger = logging.getLogger("IUTProvider - Prepare")
     lock = Lock()
 
-    def __init__(self, jsontas, prepare_ruleset):
+    def __init__(self, jsontas: JsonTas, prepare_ruleset: dict) -> None:
         """Initialize IUT preparation handler.
 
         :param jsontas: JSONTas instance used to evaluate the ruleset.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param prepare_ruleset: JSONTas ruleset for preparing IUTs.
-        :type prepare_ruleset: dict
         """
         self.prepare_ruleset = prepare_ruleset
         self.jsontas = jsontas
@@ -45,13 +46,11 @@ class Prepare:  # pylint:disable=too-few-public-methods
         # during the preparation step.
         self.config = self.dataset._Dataset__dataset.pop("config")
 
-    def execute_preparation_steps(self, iut, preparation_steps):
+    def execute_preparation_steps(self, iut: Iut, preparation_steps: dict) -> tuple[bool, Iut]:
         """Execute the preparation steps for the environment provider on an IUT.
 
         :param iut: IUT to prepare for execution.
-        :type iut: :obj:`environment_provider.lib.iut.Iut`
         :param preparation_steps: Steps to execute to prepare an IUT.
-        :type preparation_steps: dict
         """
         FORMAT_CONFIG.identifier = self.config.get("SUITE_ID")
         try:
@@ -78,13 +77,11 @@ class Prepare:  # pylint:disable=too-few-public-methods
             return False, iut
         return True, iut
 
-    def prepare(self, iuts):
+    def prepare(self, iuts: list[Iut]) -> tuple[list[Iut], list[Iut]]:
         """Prepare IUTs.
 
         :param iuts: IUTs to prepare.
-        :type iuts: list
         :return: List of prepared IUTs and a list of IUTs that failed preparation.
-        :rtype: tuple
         """
         iuts = deepcopy(iuts)
         failed_iuts = []

@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,11 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Execution space list module."""
-import os
 import logging
+import os
+
+from etos_lib import ETOS
+from jsontas.jsontas import JsonTas
+
 from environment_provider.lib.encrypt import encrypt
+
+from ..exceptions import ExecutionSpaceNotAvailable, NoExecutionSpaceFound
 from ..execution_space import ExecutionSpace
-from ..exceptions import NoExecutionSpaceFound, ExecutionSpaceNotAvailable
 from .instructions import Instructions
 
 
@@ -27,17 +32,15 @@ class List:  # pylint:disable=too-few-public-methods
 
     logger = logging.getLogger("ExecutionSpaceProvider - List")
 
-    def __init__(self, execution_space_id, etos, jsontas, list_ruleset):
+    def __init__(
+        self, execution_space_id: str, etos: ETOS, jsontas: JsonTas, list_ruleset: dict
+    ) -> None:
         """Initialize execution space list handler.
 
         :param execution_space_id: ID of execution space provider that is being used.
-        :type execution_space_id: str
         :param etos: ETOS library instance.
-        :type etos: :obj:`etos_lib.etos.ETOS`
         :param jsontas: JSONTas instance used to evaluate the ruleset.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param list_ruleset: JSONTas ruleset for listing execution spaces.
-        :type list_ruleset: dict
         """
         self.list_ruleset = list_ruleset
         self.etos = etos
@@ -47,7 +50,7 @@ class List:  # pylint:disable=too-few-public-methods
         self.dataset.add("execution_space_instructions", Instructions)
         self.id = execution_space_id  # pylint:disable=invalid-name
 
-    def add_instructions(self):
+    def add_instructions(self) -> None:
         """Add execution space spin-up instructions."""
         rabbitmq = self.etos.config.get("rabbitmq")
         rabbitmq_password = rabbitmq.get("password")
@@ -77,7 +80,7 @@ class List:  # pylint:disable=too-few-public-methods
             },
         )
 
-    def list(self, amount):
+    def list(self, amount: int) -> list[ExecutionSpace]:
         """List available execution spaces.
 
         Possible execution spaces are the execution spaces that were found in the provider
@@ -93,9 +96,7 @@ class List:  # pylint:disable=too-few-public-methods
         :raises: ExecutionSpaceNotAvailable: If there are execution spaces, but not available yet.
 
         :param amount: Number of execution spaces to list.
-        :type amount: int
         :return: Available execution spaces in the execution space provider.
-        :rtype: list
         """
         self.dataset.add("amount", amount)
         execution_spaces = self.jsontas.run(self.list_ruleset)

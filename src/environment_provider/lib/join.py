@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -25,10 +25,9 @@ class Join(DataStructure):
     Join a list of strings together to a string.
     """
 
-    def execute(self):
+    def execute(self) -> tuple[None, str]:
         """Execute datastructure.
 
         :return: None and a joined list of strings.
-        :rtype: tuple
         """
         return None, "".join([str(string) for string in self.data.get("strings")])

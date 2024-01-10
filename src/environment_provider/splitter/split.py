@@ -1,4 +1,4 @@
-# Copyright 2020-2023 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -16,32 +16,34 @@
 """ETOS Environment Provider splitter module."""
 import time
 from copy import deepcopy
+from typing import Any, Iterable, Iterator
+
+from etos_lib import ETOS
+
+from iut_provider.iut import Iut
 
 
 class Splitter:
     """Environment provider test suite splitter."""
 
-    def __init__(self, etos, ruleset):
+    def __init__(self, etos: ETOS, ruleset: dict) -> None:
         """Initialize with etos library and splitter ruleset.
 
         :param etos: ETOS library instance.
-        :type etos: :obj:`etos_lib.etos.Etos`
         :param ruleset: JSONTas ruleset for handling splitter algorithms.
-        :type ruleset: dict
         """
         self.etos = etos
         self.ruleset = ruleset
 
     @staticmethod
-    def _iterator(iterable):
+    def _iterator(iterable: Iterable) -> Iterator[Any]:
         """Create a generator from iterable."""
         yield from iterable
 
-    def splitter(self, test_suite):
+    def splitter(self, test_suite: dict) -> None:
         """Iterate through all IUTs and assign a recipe in a round-robin fashion.
 
         :param test_suite: Test suite to iterate IUTs for.
-        :type test_suite: dict
         """
         test_list = self._iterator(deepcopy(test_suite.get("unsplit_recipes")))
         while True:
@@ -53,25 +55,21 @@ class Splitter:
             except StopIteration:
                 break
 
-    def split(self, test_suite):
+    def split(self, test_suite: dict) -> None:
         """Will only call the splitter of this object.
 
         In the future this might be where other splitter algorithms are evaluated.
 
         :param test_suite: Test suite to attach tests to.
-        :type test_suite: dict
         """
         self.splitter(test_suite)
 
-    def assign_iuts(self, test_runners, iuts):
+    def assign_iuts(self, test_runners: dict, iuts: list[Iut]) -> list[Iut]:
         """Assign IUTs to test runners.
 
         :param test_runners: Test runners dictionary to attach IUTs to.
-        :type test_runners: dict
         :param iuts: List of IUTs that need test runners.
-        :type iuts: list
         :return: Any unassigned IUT.
-        :rtype: list
         """
         iuts = deepcopy(iuts)
         for test_runner in test_runners.values():

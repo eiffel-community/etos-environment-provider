@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,9 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS environment provider module."""
-import os
 import logging
-from importlib.metadata import version, PackageNotFoundError
+import os
+from importlib.metadata import PackageNotFoundError, version
+
 from etos_lib.logging.logger import setup_logging
 
 try:

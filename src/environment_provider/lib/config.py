@@ -1,4 +1,4 @@
-# Copyright 2020-2023 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,15 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS Environment Provider configuration module."""
+import logging
 import os
 import time
-import logging
+from typing import Iterator
+
+from etos_lib import ETOS
 from packageurl import PackageURL
-from .graphql import (
-    request_tercc,
-    request_activity_triggered,
-    request_artifact_published,
-)
+
+from .graphql import request_activity_triggered, request_artifact_published, request_tercc
 
 
 class Config:  # pylint:disable=too-many-instance-attributes
@@ -36,20 +36,18 @@ class Config:  # pylint:disable=too-many-instance-attributes
     activity_triggered = None
     tercc = None
 
-    def __init__(self, etos, tercc_id):
+    def __init__(self, etos: ETOS, tercc_id: str) -> None:
         """Initialize with ETOS library and automatically load the config.
 
         :param etos: ETOS library instance.
-        :type etos: :obj:`etos_lib.etos.Etos`
         :param tercc_id: ID of test execution recipe.
-        :type tercc_id: str
         """
         self.etos = etos
         self.load_config()
         self.tercc_id = tercc_id
         self.__generate()
 
-    def load_config(self):
+    def load_config(self) -> None:
         """Load config from environment variables."""
         self.etos.config.set("DEV", os.getenv("DEV", "false").lower() == "true")
 
@@ -69,33 +67,27 @@ class Config:  # pylint:disable=too-many-instance-attributes
                     value = float(value)
                 self.etos.config.set(key.replace("ENVIRONMENT_PROVIDER_", ""), value)
 
-    def __search_for_node_typename(self, response, *nodes, key="node"):
+    def __search_for_node_typename(
+        self, response: dict, *nodes: list[str], key: str = "node"
+    ) -> Iterator[tuple[str, dict]]:
         """Search for a graphql node by __typename.
 
         :param response: Response to search through.
-        :type response: dict
         :param nodes: Nodes to search for.
-        :type nodes: list
         :param key: Name of the node key.
-        :type key: str
-        :return: Generator
-        :rtype: generator
+        :return: Iterator
         """
         for _, node in self.etos.utils.search(response, key):
             if isinstance(node, dict) and node.get("__typename") in nodes:
                 yield node.get("__typename"), node
 
-    def __get_node(self, response, node, key):
+    def __get_node(self, response: dict, node: str, key: str) -> tuple[str, dict]:
         """Get a single node from graphql response.
 
         :param response: Response to search through.
-        :type response: dict
         :param node: Node to search for.
-        :type node: str
         :param key: Name of the node key.
-        :type key: str
         :return: Tuple of node name(str) and node data(dict)
-        :rtype: tuple
         """
         try:
             node_name, node = next(self.__search_for_node_typename(response, node, key=key))
@@ -108,11 +100,10 @@ class Config:  # pylint:disable=too-many-instance-attributes
         except StopIteration:
             return "", {}
 
-    def _validate_event_data(self):
+    def _validate_event_data(self) -> bool:
         """Validate that the event data required for environment provider is set.
 
         :return: Whether event data is set or not.
-        :rtype: bool
         """
         try:
             assert self.tercc is not None
@@ -122,7 +113,7 @@ class Config:  # pylint:disable=too-many-instance-attributes
         except AssertionError:
             return False
 
-    def __generate(self):
+    def __generate(self) -> None:
         """Generate the event data required for the environment provider."""
         if self.generated is False:
             self.logger.info("Generate event data from event storage.")
@@ -155,11 +146,10 @@ class Config:  # pylint:disable=too-many-instance-attributes
         return None
 
     @property
-    def context(self):
+    def context(self) -> str:
         """Get activity triggered ID.
 
         :return: Activity Triggered ID
-        :rtype: str
         """
         try:
             return self.activity_triggered["meta"]["id"]
@@ -167,11 +157,10 @@ class Config:  # pylint:disable=too-many-instance-attributes
             return ""
 
     @property
-    def artifact_id(self):
+    def artifact_id(self) -> str:
         """Get artifact ID.
 
         :return: Artifact ID
-        :rtype: str
         """
         try:
             return self.artifact_created["meta"]["id"]
@@ -179,11 +168,10 @@ class Config:  # pylint:disable=too-many-instance-attributes
             return ""
 
     @property
-    def identity(self):
+    def identity(self) -> str:
         """Get artifact identity.
 
         :return: Artifact identity.
-        :rtype: str
         """
         try:
             return PackageURL.from_string(self.artifact_created["data"]["identity"])
@@ -191,25 +179,10 @@ class Config:  # pylint:disable=too-many-instance-attributes
             return ""
 
     @property
-    def custom_data(self):
-        """Get custom data.
-
-        DEPRECATED
-
-        :return: Custom data.
-        :rtype: list
-        """
-        try:
-            return self.tercc["data"]["customData"]
-        except KeyError:
-            return []
-
-    @property
-    def test_suite(self):
+    def test_suite(self) -> list[dict]:
         """Download and return test batches.
 
         :return: Batches.
-        :rtype: list
         """
         if self.__test_suite is None:
             try:

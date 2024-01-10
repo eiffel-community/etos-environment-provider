@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,8 +15,11 @@
 # limitations under the License.
 """Log area provider list module."""
 import logging
+
+from jsontas.jsontas import JsonTas
+
+from ..exceptions import LogAreaNotAvailable, NoLogAreaFound
 from ..log_area import LogArea
-from ..exceptions import NoLogAreaFound, LogAreaNotAvailable
 
 
 class List:  # pylint:disable=too-few-public-methods
@@ -24,22 +27,19 @@ class List:  # pylint:disable=too-few-public-methods
 
     logger = logging.getLogger("LogAreaProvider - List")
 
-    def __init__(self, log_area_id, jsontas, list_ruleset):
+    def __init__(self, log_area_id: str, jsontas: JsonTas, list_ruleset: dict) -> None:
         """Initialize log area list handler.
 
         :param log_area_id: ID of log area provider that is being used.
-        :type log_area_id: str
         :param jsontas: JSONTas instance used to evaluate the ruleset.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param checkin_ruleset: JSONTas ruleset for listing log areas.
-        :type checkin_ruleset: dict
         """
         self.list_ruleset = list_ruleset
         self.jsontas = jsontas
         self.dataset = self.jsontas.dataset
         self.id = log_area_id  # pylint:disable=invalid-name
 
-    def list(self, amount):
+    def list(self, amount: int) -> list[LogArea]:
         """List available log areas.
 
         Possible log areas are the log areas that were found in the provider but are not yet
@@ -55,9 +55,7 @@ class List:  # pylint:disable=too-few-public-methods
         :raises: LogAreaNotAvailable: If there are log areas, but not available yet.
 
         :param amount: Number of log areas to list.
-        :type amount: int
         :return: Available log areas in the log area provider.
-        :rtype: list
         """
         self.dataset.add("amount", amount)
         log_areas = self.jsontas.run(self.list_ruleset)

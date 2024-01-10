@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,6 +15,7 @@
 # limitations under the License.
 """ETOS IUT provider module."""
 import pathlib
+
 from .iut_provider import IutProvider
 
 __all__ = ["IutProvider", "iut_provider_schema"]
@@ -27,11 +28,10 @@ EXTERNAL_IUT_PROVIDER_SCHEMA = (
 )
 
 
-def iut_provider_schema(ruleset):
+def iut_provider_schema(ruleset: dict) -> pathlib.Path:
     """Get IUT provider schema for json validation.
 
     :param ruleset: Ruleset to get an IUT provider schema for.
-    :type ruleset: dict
     """
     if ruleset.get("iut", {}).get("type", "jsontas") == "external":
         return EXTERNAL_IUT_PROVIDER_SCHEMA

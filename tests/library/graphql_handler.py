@@ -1,4 +1,4 @@
-# Copyright 2023 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,8 +15,8 @@
 # limitations under the License.
 """Handler for graphql queries."""
 import json
-
 from http.server import BaseHTTPRequestHandler
+
 from graphql import parse
 
 # pylint:disable=invalid-name

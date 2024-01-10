@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,7 +15,11 @@
 # limitations under the License.
 """Execution space check in module."""
 import logging
+
+from jsontas.jsontas import JsonTas
+
 from ..exceptions import ExecutionSpaceCheckinFailed
+from ..execution_space import ExecutionSpace
 
 
 class Checkin:
@@ -23,27 +27,23 @@ class Checkin:
 
     logger = logging.getLogger("ExecutionSpaceProvider - Checkin")
 
-    def __init__(self, jsontas, checkin_ruleset):
+    def __init__(self, jsontas: JsonTas, checkin_ruleset: dict) -> None:
         """Initialize execution space checkin handler.
 
         :param jsontas: JSONTas instance used to evaluate the ruleset.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param checkin_ruleset: JSONTas ruleset for checking in execution spaces.
-        :type checkin_ruleset: dict
         """
         self.checkin_ruleset = checkin_ruleset
         self.jsontas = jsontas
         self.dataset = self.jsontas.dataset
 
-    def checkin(self, execution_space):
+    def checkin(self, execution_space: ExecutionSpace) -> None:
         """Check in a single execution space, returning it to the execution space provider.
 
         :raises: ExecutionSpaceCheckinFailed: If checkin failed due to any reason.
                                               Reason is added to exception.
 
         :param execution_space: Execution space to checkin.
-        :type execution_space:
-            :obj:`environment_provider.execution_space.execution_space.ExecutionSpace`
         """
         # Definition does not have the 'checkin' key. Just return.
         if self.checkin_ruleset is None:
@@ -60,7 +60,7 @@ class Checkin:
         except ValueError:
             pass
 
-    def checkin_all(self):
+    def checkin_all(self) -> None:
         """Checkin all checked out execution spaces."""
         self.logger.info("Checking in all checked out execution spaces.")
         for execution_space in reversed(self.dataset.get("execution_spaces", [])):

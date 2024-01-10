@@ -1,4 +1,4 @@
-# Copyright 2021 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,15 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for webserver. Specifically the environment endpoint."""
-import logging
 import json
+import logging
 import unittest
 
-from mock import patch
 import falcon
+from etos_lib.lib.config import Config
+from mock import patch
 
 from environment_provider_api.webserver import Webserver
-
 from tests.library.fake_celery import FakeCelery, Task
 from tests.library.fake_database import FakeDatabase
 from tests.library.fake_request import FakeRequest, FakeResponse
@@ -33,7 +33,11 @@ class TestEnvironment(unittest.TestCase):
 
     logger = logging.getLogger(__name__)
 
-    def test_release_environment(self):
+    def tearDown(self):
+        """Reset all globally stored data for the next test."""
+        Config().reset()
+
+    def test_release_environment(self):  # pylint:disable=too-many-locals
         """Test that it is possible to release an environment.
 
         Approval criteria:
@@ -45,6 +49,7 @@ class TestEnvironment(unittest.TestCase):
             3. Verify that the environment was released.
         """
         database = FakeDatabase()
+        Config().set("database", database)
         test_iut_provider = {
             "iut": {
                 "id": "iut_provider_test",
@@ -63,22 +68,23 @@ class TestEnvironment(unittest.TestCase):
                 "list": {"available": [], "possible": []},
             }
         }
-        database.writer.hset(
-            "EnvironmentProvider:ExecutionSpaceProviders",
-            test_execution_space_provider["execution_space"]["id"],
-            json.dumps(test_execution_space_provider),
-        )
-        database.writer.hset(
-            "EnvironmentProvider:IUTProviders",
-            test_iut_provider["iut"]["id"],
+        database.put(
+            f"/environment/provider/iut/{test_iut_provider['iut']['id']}",
             json.dumps(test_iut_provider),
         )
-        database.writer.hset(
-            "EnvironmentProvider:LogAreaProviders",
-            test_log_area_provider["log"]["id"],
+        provider_id = test_execution_space_provider["execution_space"]["id"]
+        database.put(
+            f"/environment/provider/execution-space/{provider_id}",
+            json.dumps(test_execution_space_provider),
+        )
+        database.put(
+            f"/environment/provider/log-area/{test_log_area_provider['log']['id']}",
             json.dumps(test_log_area_provider),
         )
         task_id = "d9689ea5-837b-48c1-87b1-3de122b3f2fe"
+        suite_id = "6d779f97-67e7-4dfa-8260-c053fc0d7a2c"
+        database.put(f"/environment/{task_id}/suite-id", suite_id)
+        database.put(f"/testrun/{suite_id}/environment-provider/task-id", task_id)
         request = FakeRequest()
         request.fake_params = {"release": task_id}
         response = FakeResponse()
@@ -114,7 +120,7 @@ class TestEnvironment(unittest.TestCase):
         )
 
         self.logger.info("STEP: Send a release request for that environment.")
-        environment = Webserver(database, worker)
+        environment = Webserver(worker)
         environment.on_get(request, response)
 
         self.logger.info("STEP: Verify that the environment was released.")
@@ -134,6 +140,7 @@ class TestEnvironment(unittest.TestCase):
         """
         task_id = "d9689ea5-837b-48c1-87b1-3de122b3f2fe"
         database = FakeDatabase()
+        Config().set("database", database)
         request = FakeRequest()
         request.fake_params = {"id": task_id}
         response = FakeResponse()
@@ -144,7 +151,7 @@ class TestEnvironment(unittest.TestCase):
         celery_worker = FakeCelery(task_id, test_status, test_result)
 
         self.logger.info("STEP: Send a status request for that environment.")
-        environment = Webserver(database, celery_worker)
+        environment = Webserver(celery_worker)
         environment.on_get(request, response)
 
         self.logger.info("STEP: Verify that the status for the environment was returned.")
@@ -167,6 +174,7 @@ class TestEnvironment(unittest.TestCase):
         """
         task_id = "f3286e6e-946c-4510-a935-abd7c7bdbe17"
         database = FakeDatabase()
+        Config().set("database", database)
         get_environment_mock.delay.return_value = Task(task_id)
         celery_worker = FakeCelery(task_id, "", {})
         suite_id = "ca950c50-03d3-4a3c-8507-b4229dd3f8ea"
@@ -181,7 +189,7 @@ class TestEnvironment(unittest.TestCase):
         response = FakeResponse()
 
         self.logger.info("STEP: Send a request for an environment.")
-        environment = Webserver(database, celery_worker)
+        environment = Webserver(celery_worker)
         environment.on_post(request, response)
 
         self.logger.info("STEP: Verify that the environment provider gets an environment.")

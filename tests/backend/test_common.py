@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,10 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for common functionality."""
-import unittest
 import logging
-from environment_provider_api.backend.common import get_suite_id
+import unittest
+
 from tests.library.fake_request import FakeRequest
+
+from environment_provider_api.backend.common import get_suite_id
 
 
 class TestCommonFunctionality(unittest.TestCase):

@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -16,16 +16,17 @@
 """IUT provider utilizing JSONTas."""
 import logging
 import time
-from .list import List
-from .checkout import Checkout
+
+from etos_lib import ETOS
+from jsontas.jsontas import JsonTas
+from packageurl import PackageURL
+
+from ..exceptions import IutCheckoutFailed, IutNotAvailable, NoIutFound, NotEnoughIutsAvailable
+from ..iut import Iut
 from .checkin import Checkin
+from .checkout import Checkout
+from .list import List
 from .prepare import Prepare
-from ..exceptions import (
-    NoIutFound,
-    IutNotAvailable,
-    IutCheckoutFailed,
-    NotEnoughIutsAvailable,
-)
 
 
 class JSONTasProvider:
@@ -33,15 +34,12 @@ class JSONTasProvider:
 
     logger = logging.getLogger("IUTProvider")
 
-    def __init__(self, etos, jsontas, ruleset):
+    def __init__(self, etos: ETOS, jsontas: JsonTas, ruleset: dict):
         """Initialize IUT provider.
 
         :param etos: ETOS library instance.
-        :type etos: :obj:`etos_lib.etos.Etos`
         :param jsontas: JSONTas instance used to evaluate the rulesets.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param ruleset: JSONTas ruleset for handling IUTs.
-        :type ruleset: dict
         """
         self.etos = etos
         self.etos.config.set("iuts", [])
@@ -52,68 +50,58 @@ class JSONTasProvider:
         self.logger.info("Initialized IUT provider %r", self.id)
 
     @property
-    def identity(self):
+    def identity(self) -> PackageURL:
         """IUT Identity.
 
         :return: IUT identity as PURL object.
-        :rtype: :obj:`packageurl.PackageURL`
         """
         return self.jsontas.dataset.get("identity")
 
-    def checkout(self, available_iuts):
+    def checkout(self, available_iuts: list[Iut]) -> list[Iut]:
         """Checkout a number of IUTs from an IUT provider.
 
         :param available_iuts: IUTs to checkout.
-        :type available_iuts: list
         :return: Checked out IUTs.
-        :rtype: list
         """
         checkout_iuts = Checkout(self.jsontas, self.ruleset.get("checkout"))
         return checkout_iuts.checkout(available_iuts)
 
-    def list(self, amount):
+    def list_iuts(self, amount: int) -> list[Iut]:
         """List IUTs in order to find out which are available or not.
 
         :param amount: Number of IUTs to list.
-        :type amount: int
         :return: Available IUTs in the IUT provider.
-        :rtype: list
         """
         list_iuts = List(self.id, self.jsontas, self.ruleset.get("list"))
         return list_iuts.list(self.identity, amount)
 
-    def checkin_all(self):
+    def checkin_all(self) -> None:
         """Check in all checked out IUTs."""
         checkin_iuts = Checkin(self.jsontas, self.ruleset.get("checkin"))
         checkin_iuts.checkin_all()
 
-    def checkin(self, iut):
+    def checkin(self, iut: Iut) -> None:
         """Check in a single IUT, returning it to the IUT provider.
 
         :param iut: IUT to checkin.
-        :type iut: :obj:`environment_provider.iut.iut.Iut`
         """
         checkin_iuts = Checkin(self.jsontas, self.ruleset.get("checkin"))
         checkin_iuts.checkin(iut)
 
-    def prepare(self, iuts):
+    def prepare(self, iuts: list[Iut]) -> list[Iut]:
         """Prepare all IUTs in the IUT provider.
 
         :param iuts: IUTs to prepare.
-        :type iuts: list
         :return: Prepared IUTs
-        :rtype: list
         """
         prepare_iuts = Prepare(self.jsontas, self.ruleset.get("prepare"))
         return prepare_iuts.prepare(iuts)
 
-    def _fail_message(self, last_exception):
+    def _fail_message(self, last_exception: Exception) -> str:
         """Generate a fail message for IUT provider.
 
         :param last_exception: Latest exception that was raised within the wait method.
-        :type last_exception: :obj:`BaseException`
         :return: A failure reason.
-        :rtype: str
         """
         timeout = self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
         fail_reason = "Unknown"
@@ -126,17 +114,16 @@ class JSONTasProvider:
         return f"Failed to checkout {self.identity.to_string()}. Reason: {fail_reason}"
 
     # pylint: disable=too-many-branches
-    def _wait_for_and_checkout_iuts(self, minimum_amount=0, maximum_amount=100):
+    def _wait_for_and_checkout_iuts(
+        self, minimum_amount: int = 0, maximum_amount: int = 100
+    ) -> list[Iut]:
         """Wait for and checkout IUTs from an IUT provider.
 
         :raises: IutNotAvailable: If there are no available IUTs after timeout.
 
         :param minimum_amount: Minimum amount of IUTs to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of IUTs to checkout.
-        :type maximum_amount: int
         :return: List of checked out IUTs.
-        :rtype: list
         """
         timeout = time.time() + self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
         last_exception = None
@@ -148,7 +135,7 @@ class JSONTasProvider:
             else:
                 time.sleep(5)
             try:
-                available_iuts = self.list(maximum_amount)
+                available_iuts = self.list_iuts(maximum_amount)
                 self.logger.info("Available IUTs:")
                 for iut in available_iuts:
                     self.logger.info(iut)
@@ -208,7 +195,9 @@ class JSONTasProvider:
             raise IutNotAvailable(self._fail_message(last_exception))
         return prepared_iuts
 
-    def wait_for_and_checkout_iuts(self, minimum_amount=0, maximum_amount=100):
+    def wait_for_and_checkout_iuts(
+        self, minimum_amount: int = 0, maximum_amount: int = 100
+    ) -> list[Iut]:
         """Wait for and checkout IUTs from an IUT provider.
 
         See: `_wait_for_and_checkout_iuts`
@@ -216,11 +205,8 @@ class JSONTasProvider:
         :raises: IutNotAvailable: If there are no available IUTs after timeout.
 
         :param minimum_amount: Minimum amount of IUTs to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of IUTs to checkout.
-        :type maximum_amount: int
         :return: List of checked out IUTs.
-        :rtype: list
         """
         error = None
         triggered = None

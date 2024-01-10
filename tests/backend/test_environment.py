@@ -1,4 +1,4 @@
-# Copyright 2021 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,15 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for the environment backend system."""
-import logging
 import json
-from typing import OrderedDict
+import logging
 import unittest
+from typing import OrderedDict
 
-from mock import patch
 from etos_lib import ETOS
+from etos_lib.lib.config import Config
 from jsontas.jsontas import JsonTas
+from mock import patch
 
+from environment_provider_api.backend.common import get_suite_id
 from environment_provider_api.backend.environment import (
     check_environment_status,
     get_environment_id,
@@ -30,17 +32,19 @@ from environment_provider_api.backend.environment import (
     release_full_environment,
     request_environment,
 )
-from environment_provider_api.backend.common import get_suite_id
-from environment_provider.lib.registry import ProviderRegistry
 from tests.library.fake_celery import FakeCelery, Task
-from tests.library.fake_request import FakeRequest
 from tests.library.fake_database import FakeDatabase
+from tests.library.fake_request import FakeRequest
 
 
 class TestEnvironmentBackend(unittest.TestCase):
     """Test the environment backend."""
 
     logger = logging.getLogger(__name__)
+
+    def tearDown(self):
+        """Reset all globally stored data for the next test."""
+        Config().reset()
 
     def test_get_from_request(self):
         """Test that it is possible to get all parameters from request.
@@ -86,6 +90,7 @@ class TestEnvironmentBackend(unittest.TestCase):
             2. Verify that it was possible to release that environment.
         """
         database = FakeDatabase()
+        Config().set("database", database)
         test_iut_provider = OrderedDict(
             {
                 "iut": {
@@ -110,19 +115,17 @@ class TestEnvironmentBackend(unittest.TestCase):
                 }
             }
         )
-        database.writer.hset(
-            "EnvironmentProvider:ExecutionSpaceProviders",
-            test_execution_space_provider["execution_space"]["id"],
-            json.dumps(test_execution_space_provider),
-        )
-        database.writer.hset(
-            "EnvironmentProvider:IUTProviders",
-            test_iut_provider["iut"]["id"],
+        database.put(
+            f"/environment/provider/iut/{test_iut_provider['iut']['id']}",
             json.dumps(test_iut_provider),
         )
-        database.writer.hset(
-            "EnvironmentProvider:LogAreaProviders",
-            test_log_area_provider["log"]["id"],
+        provider_id = test_execution_space_provider["execution_space"]["id"]
+        database.put(
+            f"/environment/provider/execution-space/{provider_id}",
+            json.dumps(test_execution_space_provider),
+        )
+        database.put(
+            f"/environment/provider/log-area/{test_log_area_provider['log']['id']}",
             json.dumps(test_log_area_provider),
         )
         iut = {"id": "test_iut", "provider_id": test_iut_provider["iut"]["id"]}
@@ -134,40 +137,30 @@ class TestEnvironmentBackend(unittest.TestCase):
             "id": "test_log_area",
             "provider_id": test_log_area_provider["log"]["id"],
         }
+        test_suite_id = "ce63f53e-1797-42bb-ae72-861a0b6b7ef6"
         jsontas = JsonTas()
         etos = ETOS("", "", "")
-        registry = ProviderRegistry(etos, jsontas, database)
+        database.put(
+            f"/testrun/{test_suite_id}/suite/fakeid/subsuite/fakeid/suite",
+            json.dumps(
+                {
+                    "sub_suites": [
+                        {
+                            "iut": iut,
+                            "executor": executor,
+                            "log_area": log_area,
+                        }
+                    ]
+                }
+            ),
+        )
 
-        test_release_id = "ce63f53e-1797-42bb-ae72-861a0b6b7ef6"
-        worker = FakeCelery(
-            test_release_id,
-            "SUCCESS",
-            {
-                "suites": [
-                    {
-                        "sub_suites": [
-                            {
-                                "iut": iut,
-                                "executor": executor,
-                                "log_area": log_area,
-                            }
-                        ]
-                    }
-                ]
-            },
-        )
         self.logger.info("STEP: Attempt to release an environment.")
-        success, _ = release_full_environment(
-            etos,
-            jsontas,
-            registry,
-            worker.AsyncResult(test_release_id),
-            test_release_id,
-        )
+        success, _ = release_full_environment(etos, jsontas, test_suite_id)
 
         self.logger.info("STEP: Verify that it was possible to release that environment.")
         self.assertTrue(success)
-        self.assertIsNone(worker.AsyncResult(test_release_id))
+        self.assertListEqual(database.get_prefix("/testrun"), [])
 
     def test_release_full_environment_failure(self):
         """Test that a failure is returned when there is a problem with releasing.
@@ -184,6 +177,7 @@ class TestEnvironmentBackend(unittest.TestCase):
             2. Verify that the release return failure.
         """
         database = FakeDatabase()
+        Config().set("database", database)
         test_iut_provider = {
             "iut": {
                 "id": "iut_provider_test",
@@ -203,22 +197,19 @@ class TestEnvironmentBackend(unittest.TestCase):
                 "list": {"available": [], "possible": []},
             }
         }
-        database.writer.hset(
-            "EnvironmentProvider:ExecutionSpaceProviders",
-            test_execution_space_provider["execution_space"]["id"],
-            json.dumps(test_execution_space_provider),
-        )
-        database.writer.hset(
-            "EnvironmentProvider:IUTProviders",
-            test_iut_provider["iut"]["id"],
+        database.put(
+            f"/environment/provider/iut/{test_iut_provider['iut']['id']}",
             json.dumps(test_iut_provider),
         )
-        database.writer.hset(
-            "EnvironmentProvider:LogAreaProviders",
-            test_log_area_provider["log"]["id"],
+        provider_id = test_execution_space_provider["execution_space"]["id"]
+        database.put(
+            f"/environment/provider/execution-space/{provider_id}",
+            json.dumps(test_execution_space_provider),
+        )
+        database.put(
+            f"/environment/provider/log-area/{test_log_area_provider['log']['id']}",
             json.dumps(test_log_area_provider),
         )
-        registry = ProviderRegistry(ETOS("", "", ""), JsonTas(), database)
 
         iut = {"id": "test_iut", "provider_id": test_iut_provider["iut"]["id"]}
         executor = {
@@ -229,69 +220,30 @@ class TestEnvironmentBackend(unittest.TestCase):
             "id": "test_log_area",
             "provider_id": test_log_area_provider["log"]["id"],
         }
+        test_suite_id = "ce63f53e-1797-42bb-ae72-861a0b6b7ef6"
         jsontas = JsonTas()
         etos = ETOS("", "", "")
-        registry = ProviderRegistry(etos, jsontas, database)
-
-        test_release_id = "ce63f53e-1797-42bb-ae72-861a0b6b7ef6"
-        worker = FakeCelery(
-            test_release_id,
-            "SUCCESS",
-            {
-                "suites": [
-                    {
-                        "sub_suites": [
-                            {
-                                "iut": iut,
-                                "executor": executor,
-                                "log_area": log_area,
-                            }
-                        ]
-                    }
-                ]
-            },
+        database.put(
+            f"/testrun/{test_suite_id}/suite/fakeid/subsuite/fakeid/suite",
+            json.dumps(
+                {
+                    "sub_suites": [
+                        {
+                            "iut": iut,
+                            "executor": executor,
+                            "log_area": log_area,
+                        }
+                    ]
+                }
+            ),
         )
 
         self.logger.info("STEP: Release an environment where one provider will fail to check in.")
-        success, _ = release_full_environment(
-            etos,
-            jsontas,
-            registry,
-            worker.AsyncResult(test_release_id),
-            test_release_id,
-        )
+        success, _ = release_full_environment(etos, jsontas, test_suite_id)
 
         self.logger.info("STEP: Verify that the release return failure.")
         self.assertFalse(success)
-        self.assertIsNone(worker.AsyncResult(test_release_id))
-
-    def test_release_full_environment_no_task_result(self):
-        """Test that it is not possible to release an environment without task results.
-
-        Approval criteria:
-            - The environment provider shall not attempt to release environments with results.
-
-        Test steps:
-            1. Attempt to release an environment without a task ID.
-            2. Verify that the release fails.
-        """
-        database = FakeDatabase()
-        test_release_id = "ce63f53e-1797-42bb-ae72-861a0b6b7ef6"
-        worker = FakeCelery("thisdoesnotexist", "SUCCESS", {})
-        jsontas = JsonTas()
-        etos = ETOS("", "", "")
-        registry = ProviderRegistry(etos, jsontas, database)
-        self.logger.info("STEP: Attempt to release an environment without a task ID.")
-        success, _ = release_full_environment(
-            etos,
-            jsontas,
-            registry,
-            worker.AsyncResult(test_release_id),
-            test_release_id,
-        )
-
-        self.logger.info("STEP: Verify that the release fails.")
-        self.assertFalse(success)
+        self.assertListEqual(database.get_prefix("/testrun"), [])
 
     def test_check_environment_status(self):
         """Test that it is possible to get the status of an environment.

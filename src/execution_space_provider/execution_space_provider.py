@@ -15,6 +15,12 @@
 # limitations under the License.
 """Execution space provider module."""
 from abc import abstractmethod
+from typing import Union
+
+from etos_lib import ETOS
+from jsontas.jsontas import JsonTas
+
+from .execution_space import ExecutionSpace
 from .utilities.external_provider import ExternalProvider
 from .utilities.jsontas_provider import JSONTasProvider
 
@@ -24,7 +30,9 @@ class ExecutionSpaceProvider:
 
     id = "Undefined"
 
-    def __new__(cls, etos, jsontas, ruleset):
+    def __new__(
+        cls, etos: ETOS, jsontas: JsonTas, ruleset: dict
+    ) -> Union[ExternalProvider, JSONTasProvider]:
         """Check which type of provider and return an appropriate one."""
         if ruleset.get("type", "jsontas") == "external":
             return ExternalProvider(etos, jsontas, ruleset)
@@ -32,29 +40,26 @@ class ExecutionSpaceProvider:
             return JSONTasProvider(etos, jsontas, ruleset)
 
     @abstractmethod
-    def checkin(self, execution_space):
+    def checkin(self, execution_space: ExecutionSpace) -> None:
         """Check in a single execution space, returning it to the execution space provider.
 
         :param execution_space: Execution space to checkin.
-        :type execution_space:
-            :obj:`environment_provider.execution_space.execution_space.ExecutionSpace`
         """
 
     @abstractmethod
-    def checkin_all(self):
+    def checkin_all(self) -> None:
         """Check in all checked out execution spaces."""
 
     @abstractmethod
-    def wait_for_and_checkout_execution_spaces(self, minimum_amount=0, maximum_amount=100):
+    def wait_for_and_checkout_execution_spaces(
+        self, minimum_amount: int = 0, maximum_amount: int = 100
+    ) -> list[ExecutionSpace]:
         """Wait for and checkout execution spaces from an execution space provider.
 
         :raises: ExecutionSpaceNotAvailable: If there are no available execution spaces after
                                              timeout.
 
         :param minimum_amount: Minimum amount of execution spaces to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of execution spaces to checkout.
-        :type maximum_amount: int
         :return: List of checked out execution spaces.
-        :rtype: list
         """

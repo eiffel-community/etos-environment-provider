@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -16,7 +16,11 @@
 """IUT provider checkout module."""
 import logging
 from copy import deepcopy
+
+from jsontas.jsontas import JsonTas
+
 from ..exceptions import IutCheckoutFailed
+from ..iut import Iut
 
 
 class Checkout:  # pylint:disable=too-few-public-methods
@@ -24,28 +28,24 @@ class Checkout:  # pylint:disable=too-few-public-methods
 
     logger = logging.getLogger("IUTProvider - Checkout")
 
-    def __init__(self, jsontas, checkout_ruleset):
+    def __init__(self, jsontas: JsonTas, checkout_ruleset: dict) -> None:
         """Initialize IUT checkout handler.
 
         :param jsontas: JSONTas instance used to evaluate the ruleset.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param checkout_ruleset: JSONTas ruleset for checking out IUTs.
-        :type checkout_ruleset: dict
         """
         self.checkout_ruleset = checkout_ruleset
         self.jsontas = jsontas
         self.dataset = self.jsontas.dataset
 
-    def checkout(self, iuts):
+    def checkout(self, iuts: list[Iut]) -> list[Iut]:
         """Checkout a number of IUTs from an IUT provider.
 
         :raises: IutCheckoutFailed: If checkout failed due to any reason.
                                     Reason is added to exception.
 
         :param iuts: IUTs to checkout.
-        :type iuts: list
         :return: Checked out IUTs.
-        :rtype: list
         """
         # Definition does not have the 'checkout' key. Just return IUTs provided.
         if not self.checkout_ruleset:

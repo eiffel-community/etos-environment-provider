@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,16 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Common functionality for all backend types."""
+from typing import Optional
+
+from falcon import Request
 from falcon.errors import MediaNotFoundError
 
 
-def get_suite_id(request):
+def get_suite_id(request: Request) -> Optional[str]:
     """Get a suite ID from the request.
 
     :param request: The falcon request object.
-    :type request: :obj:`falcon.request`
     :return: A Suite ID.
-    :rtype: str
     """
     try:
         media = request.get_media()
@@ -32,13 +33,11 @@ def get_suite_id(request):
         return request.get_param("suite_id")
 
 
-def get_suite_runner_ids(request):
+def get_suite_runner_ids(request: Request) -> Optional[str]:
     """Get suite runner IDs from the request.
 
     :param request: The falcon request object.
-    :type request: :obj:`falcon.request`
     :return: Suite runner IDs.
-    :rtype: list
     """
     try:
         media = request.get_media()

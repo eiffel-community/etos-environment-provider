@@ -1,4 +1,4 @@
-# Copyright 2021-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,23 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Integration tests for the external IUT."""
-import os
 import logging
+import os
 import unittest
 
 from etos_lib import ETOS
 from jsontas.jsontas import JsonTas
 from packageurl import PackageURL
 
-from tests.library.fake_server import FakeServer
-
-from iut_provider.utilities.external_provider import ExternalProvider
-from iut_provider.exceptions import (
-    IutCheckinFailed,
-    IutCheckoutFailed,
-    IutNotAvailable,
-)
+from iut_provider.exceptions import IutCheckinFailed, IutCheckoutFailed, IutNotAvailable
 from iut_provider.iut import Iut
+from iut_provider.utilities.external_provider import ExternalProvider
+from tests.library.fake_server import FakeServer
 
 
 class TestExternalIUT(unittest.TestCase):

@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,6 +15,11 @@
 # limitations under the License.
 """Log area provider module."""
 from abc import abstractmethod
+
+from etos_lib import ETOS
+from jsontas.jsontas import JsonTas
+
+from .log_area import LogArea
 from .utilities.external_provider import ExternalProvider
 from .utilities.jsontas_provider import JSONTasProvider
 
@@ -24,7 +29,7 @@ class LogAreaProvider:
 
     id = "Undefined"
 
-    def __new__(cls, etos, jsontas, ruleset):
+    def __new__(cls, etos: ETOS, jsontas: JsonTas, ruleset: dict) -> None:
         """Check which type of provider and return an appropriate one."""
         if ruleset.get("type", "jsontas") == "external":
             return ExternalProvider(etos, jsontas, ruleset)
@@ -32,27 +37,25 @@ class LogAreaProvider:
             return JSONTasProvider(etos, jsontas, ruleset)
 
     @abstractmethod
-    def checkin(self, log_area):
+    def checkin(self, log_area: LogArea) -> None:
         """Check in a single log area, returning it to the log area provider.
 
         :param log_area: Log area to checkin.
-        :type log_area: :obj:`environment_provider.logs.log_area.LogArea`
         """
 
     @abstractmethod
-    def checkin_all(self):
+    def checkin_all(self) -> None:
         """Check in all checked out log areas."""
 
     @abstractmethod
-    def wait_for_and_checkout_log_areas(self, minimum_amount=0, maximum_amount=100):
+    def wait_for_and_checkout_log_areas(
+        self, minimum_amount: int = 0, maximum_amount: int = 100
+    ) -> list[LogArea]:
         """Wait for and checkout log areas from an log area provider.
 
         :raises: LogAreaNotAvailable: If there are no available log areas after timeout.
 
         :param minimum_amount: Minimum amount of log areas to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of log areas to checkout.
-        :type maximum_amount: int
         :return: List of checked out log areas.
-        :rtype: list
         """

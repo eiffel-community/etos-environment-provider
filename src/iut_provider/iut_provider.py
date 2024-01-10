@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,6 +15,12 @@
 # limitations under the License.
 """IUT provider module."""
 from abc import abstractmethod
+from typing import Union
+
+from etos_lib import ETOS
+from jsontas.jsontas import JsonTas
+
+from .iut import Iut
 from .utilities.external_provider import ExternalProvider
 from .utilities.jsontas_provider import JSONTasProvider
 
@@ -24,7 +30,9 @@ class IutProvider:
 
     id = "Undefined"
 
-    def __new__(cls, etos, jsontas, ruleset):
+    def __new__(
+        cls, etos: ETOS, jsontas: JsonTas, ruleset: dict
+    ) -> Union[ExternalProvider, JSONTasProvider]:
         """Check which type of provider and return an appropriate one."""
         if ruleset.get("type", "jsontas") == "external":
             return ExternalProvider(etos, jsontas, ruleset)
@@ -32,27 +40,23 @@ class IutProvider:
             return JSONTasProvider(etos, jsontas, ruleset)
 
     @abstractmethod
-    def checkin(self, iut):
+    def checkin(self, iut: Iut) -> None:
         """Check in a single IUT, returning it to the IUT provider.
 
         :param iut: IUT to checkin.
-        :type iut: :obj:`environment_provider.iut.iut.Iut`
         """
 
     @abstractmethod
-    def checkin_all(self):
+    def checkin_all(self) -> None:
         """Check in all checked out IUTs."""
 
     @abstractmethod
-    def wait_for_and_checkout_iuts(self, minimum_amount, maximum_amount):
+    def wait_for_and_checkout_iuts(self, minimum_amount: int, maximum_amount: int) -> list[Iut]:
         """Wait for and checkout IUTs from an IUT provider.
 
         :raises: IutNotAvailable: If there are no available IUTs after timeout.
 
         :param minimum_amount: Minimum amount of IUTs to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of IUTs to checkout.
-        :type maximum_amount: int
         :return: List of checked out IUTs.
-        :rtype: list
         """

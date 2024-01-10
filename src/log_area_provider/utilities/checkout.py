@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -16,7 +16,11 @@
 """Log area provider checkout module."""
 import logging
 from copy import deepcopy
+
+from jsontas.jsontas import JsonTas
+
 from ..exceptions import LogAreaCheckoutFailed
+from ..log_area import LogArea
 
 
 class Checkout:  # pylint:disable=too-few-public-methods
@@ -24,28 +28,24 @@ class Checkout:  # pylint:disable=too-few-public-methods
 
     logger = logging.getLogger("LogAreaProvider - Checkout")
 
-    def __init__(self, jsontas, checkout_ruleset):
+    def __init__(self, jsontas: JsonTas, checkout_ruleset: dict) -> None:
         """Initialize log area checkout handler.
 
         :param jsontas: JSONTas instance used to evaluate the ruleset.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param checkin_ruleset: JSONTas ruleset for checking out log areas.
-        :type checkin_ruleset: dict
         """
         self.checkout_ruleset = checkout_ruleset
         self.jsontas = jsontas
         self.dataset = self.jsontas.dataset
 
-    def checkout(self, log_areas):
+    def checkout(self, log_areas: list[LogArea]) -> list[LogArea]:
         """Checkout a number of log areas from an log area provider.
 
         :raises: LogAreaCheckoutFailed: If checkout failed due to any reason.
                                         Reason is added to exception.
 
         :param log_areas: Log areas to checkout.
-        :type log_areas: list
         :return: Checked out log areas.
-        :rtype: list
         """
         # Definition does not have the 'checkout' key. Just return log areas provided.
         if not self.checkout_ruleset:

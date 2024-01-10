@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,8 +15,12 @@
 # limitations under the License.
 """IUT provider list module."""
 import logging
+
+from jsontas.jsontas import JsonTas
+from packageurl import PackageURL
+
+from ..exceptions import IutNotAvailable, NoIutFound
 from ..iut import Iut
-from ..exceptions import NoIutFound, IutNotAvailable
 
 
 class List:  # pylint:disable=too-few-public-methods
@@ -24,22 +28,19 @@ class List:  # pylint:disable=too-few-public-methods
 
     logger = logging.getLogger("IUTProvider - List")
 
-    def __init__(self, iut_id, jsontas, list_ruleset):
+    def __init__(self, iut_id: str, jsontas: JsonTas, list_ruleset: dict) -> None:
         """Initialize IUT list handler.
 
         :param iut_id: ID of IUT provider that is being used.
-        :type iut_id: str
         :param jsontas: JSONTas instance used to evaluate the ruleset.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param list_ruleset: JSONTas ruleset for listing IUTs.
-        :type list_ruleset: dict
         """
         self.list_ruleset = list_ruleset
         self.jsontas = jsontas
         self.dataset = self.jsontas.dataset
         self.id = iut_id  # pylint:disable=invalid-name
 
-    def list(self, identity, amount):
+    def list(self, identity: PackageURL, amount: int) -> list[Iut]:
         """List available IUTs.
 
         Possible IUTs are the IUTs that were found in the provider but are not yet available
@@ -55,11 +56,8 @@ class List:  # pylint:disable=too-few-public-methods
         :raises: IutNotAvailable: If there are IUTs, but not available yet.
 
         :param identity: Identity of IUT.
-        :type identity: :obj:`packageurl.PackageURL`
         :param amount: Number of IUTs to list.
-        :type amount: int
         :return: Available IUTs in the IUT provider.
-        :rtype: list
         """
         self.dataset.add("amount", amount)
         iuts = self.jsontas.run(self.list_ruleset)

@@ -15,21 +15,19 @@
 # limitations under the License.
 """JSONTas encrypt string data structure module."""
 import os
-from jsontas.data_structures.datastructure import DataStructure
+
 from cryptography.fernet import Fernet
+from jsontas.data_structures.datastructure import DataStructure
 
 # pylint:disable=too-few-public-methods
 
 
-def encrypt(value, key):
+def encrypt(value: bytes, key: str) -> str:
     """Encrypt a string.
 
     :param value: Data to encrypt.
-    :type value: bytes
     :param key: Encryption key to encrypt data with.
-    :type key: str
     :return: Encrypted data.
-    :rtype: str
     """
     return Fernet(key).encrypt(value).decode()
 
@@ -37,11 +35,10 @@ def encrypt(value, key):
 class Encrypt(DataStructure):
     """Encrypt a string value."""
 
-    def execute(self):
+    def execute(self) -> tuple[str, dict]:
         """Execute datastructure.
 
-        :return: Name of key. None, to tell JSONTas to not override key name, and encrypted value
-        :rtype: tuple
+        :return: Name of key and encrypted value
         """
         key = os.getenv("ETOS_ENCRYPTION_KEY")
         assert key is not None, "ETOS_ENCRYPTION_KEY environment variable must be set"

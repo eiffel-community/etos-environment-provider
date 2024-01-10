@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -16,7 +16,11 @@
 """Execution space checkout module."""
 import logging
 from copy import deepcopy
+
+from jsontas.jsontas import JsonTas
+
 from ..exceptions import ExecutionSpaceCheckoutFailed
+from ..execution_space import ExecutionSpace
 
 
 class Checkout:  # pylint:disable=too-few-public-methods
@@ -24,28 +28,24 @@ class Checkout:  # pylint:disable=too-few-public-methods
 
     logger = logging.getLogger("ExecutionSpaceProvider - Checkout")
 
-    def __init__(self, jsontas, checkout_ruleset):
+    def __init__(self, jsontas: JsonTas, checkout_ruleset: dict) -> None:
         """Initialize execution space checkout handler.
 
         :param jsontas: JSONTas instance used to evaluate the ruleset.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param checkout_ruleset: JSONTas ruleset for checking out execution spaces.
-        :type checkout_ruleset: dict
         """
         self.checkout_ruleset = checkout_ruleset
         self.jsontas = jsontas
         self.dataset = self.jsontas.dataset
 
-    def checkout(self, execution_spaces):
+    def checkout(self, execution_spaces: list[ExecutionSpace]) -> list[ExecutionSpace]:
         """Checkout a number of execution spaces from an execution space provider.
 
         :raises: ExecutionSpaceCheckoutFailed: If checkout failed due to any reason.
                                                Reason is added to exception.
 
         :param execution_spaces: Execution spaces to checkout.
-        :type execution_spaces: list
         :return: Checked out execution spaces.
-        :rtype: list
         """
         # Definition does not have the 'checkout' key. Just return execution spaces provided.
         if not self.checkout_ruleset:

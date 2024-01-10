@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -22,7 +22,7 @@ import falcon
 class RequireJSON:
     """Require Accept: application/json headers for this API."""
 
-    def process_request(self, req, _):
+    def process_request(self, req: falcon.Request, _) -> None:
         """Process request."""
         if not req.client_accepts_json:
             raise falcon.HTTPNotAcceptable(

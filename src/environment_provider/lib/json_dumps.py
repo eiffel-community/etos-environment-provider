@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,6 +15,7 @@
 # limitations under the License.
 """JSONTas JSON dump to string data structure module."""
 import json
+
 from jsontas.data_structures.datastructure import DataStructure
 
 # pylint:disable=too-few-public-methods
@@ -26,10 +27,9 @@ class JsonDumps(DataStructure):
     Dump a value to string.
     """
 
-    def execute(self):
+    def execute(self) -> tuple[None, str]:
         """Execute datastructure.
 
         :return: Name of key (None, to tell JSONTas to not override key name and JSON dumped value.
-        :rtype: tuple
         """
         return None, json.dumps(self.data)

@@ -1,4 +1,4 @@
-# Copyright 2021 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,11 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for webserver. Specifically the register endpoint."""
-import logging
 import json
+import logging
 import unittest
 
 import falcon
+from etos_lib.lib.config import Config
 
 from environment_provider_api.webserver import Register
 from tests.library.fake_database import FakeDatabase
@@ -30,6 +31,10 @@ class TestRegister(unittest.TestCase):
 
     logger = logging.getLogger(__name__)
 
+    def tearDown(self):
+        """Reset all globally stored data for the next test."""
+        Config().reset()
+
     def test_register_all_providers(self):
         """Test that it is possible to register providers via the register endpoint
 
@@ -40,7 +45,8 @@ class TestRegister(unittest.TestCase):
             1. Send a register request for new providers.
             2. Verify that the new providers were registered in the database.
         """
-        fake_database = FakeDatabase()
+        database = FakeDatabase()
+        Config().set("database", database)
         test_iut_provider = {
             "iut": {
                 "id": "iut_provider_test",
@@ -67,28 +73,23 @@ class TestRegister(unittest.TestCase):
         }
         fake_response = FakeResponse()
         self.logger.info("STEP: Send a register request for new providers.")
-        Register(fake_database).on_post(fake_request, fake_response)
+        Register().on_post(fake_request, fake_response)
 
         self.logger.info("STEP: Verify that the new providers were registered in the database.")
         self.assertEqual(fake_response.fake_responses.get("status"), falcon.HTTP_204)
         stored_execution_space_provider = json.loads(
-            fake_database.reader.hget(
-                "EnvironmentProvider:ExecutionSpaceProviders",
-                "execution_space_provider_test",
-            )
+            database.get("/environment/provider/execution-space/execution_space_provider_test")[0]
         )
         self.assertDictEqual(
             stored_execution_space_provider,
             test_execution_space_provider,
         )
         stored_log_area_provider = json.loads(
-            fake_database.reader.hget(
-                "EnvironmentProvider:LogAreaProviders", "log_area_provider_test"
-            )
+            database.get("/environment/provider/log-area/log_area_provider_test")[0]
         )
         self.assertDictEqual(stored_log_area_provider, test_log_area_provider)
         stored_iut_provider = json.loads(
-            fake_database.reader.hget("EnvironmentProvider:IUTProviders", "iut_provider_test")
+            database.get("/environment/provider/iut/iut_provider_test")[0]
         )
         self.assertDictEqual(stored_iut_provider, test_iut_provider)
 
@@ -102,10 +103,11 @@ class TestRegister(unittest.TestCase):
             1. Send a register request with no providers.
             2. Verify that a 400 Bad Request is returned.
         """
-        fake_database = FakeDatabase()
+        database = FakeDatabase()
+        Config().set("database", database)
         fake_request = FakeRequest()
         fake_response = FakeResponse()
         self.logger.info("STEP: Send a register request with no providers.")
         with self.assertRaises(falcon.HTTPBadRequest):
             self.logger.info("STEP: Verify that a 400 Bad Request is returned.")
-            Register(fake_database).on_post(fake_request, fake_response)
+            Register().on_post(fake_request, fake_response)

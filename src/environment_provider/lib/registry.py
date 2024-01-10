@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -17,15 +17,17 @@
 import json
 import logging
 from collections import OrderedDict
+from typing import Optional
+
 import jsonschema
+from etos_lib.etos import ETOS
+from jsontas.jsontas import JsonTas
 
-from execution_space_provider import (
-    ExecutionSpaceProvider,
-    execution_space_provider_schema,
-)
+from execution_space_provider import ExecutionSpaceProvider, execution_space_provider_schema
 from iut_provider import IutProvider, iut_provider_schema
-
 from log_area_provider import LogAreaProvider, log_area_provider_schema
+
+from .database import ETCDPath
 
 
 class ProviderRegistry:
@@ -33,56 +35,50 @@ class ProviderRegistry:
 
     logger = logging.getLogger("Registry")
 
-    def __init__(self, etos, jsontas, database):
+    def __init__(self, etos: ETOS, jsontas: JsonTas, suite_id: Optional[str]) -> None:
         """Initialize with ETOS library, JsonTas and ETOS database.
 
         :param etos: ETOS library instance.
-        :type etos: :obj:`etos_lib.etos.Etos`
         :param jsontas: JSONTas instance used to evaluate JSONTas structures.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
-        :param database: Database class to use.
-        :type database: class
+        :param suite_id: The suite ID for an ETOS testrun. If not set, testrun operations will not
+                         work.
         """
         self.etos = etos
         self.jsontas = jsontas
+        self.testrun = ETCDPath(f"/testrun/{suite_id}")
+        if suite_id is None:
+            # Results in exceptions if trying to use testrun without suite ID set. Otherwise
+            # there's a big risk of writing data on bogus keys in the database.
+            self.testrun = None
+        self.providers = ETCDPath("/environment/provider")
         self.etos.config.set("PROVIDERS", [])
-        self.database = database
 
-    def is_configured(self, suite_id):
+    def is_configured(self) -> bool:
         """Check that there is a configuration for the given suite ID.
 
-        :param suite_id: Suite ID to check for configuration.
-        :type suite_id: str
         :return: Whether or not a configuration exists for the suite ID.
-        :rtype: bool
         """
-        configuration = self.database.reader.hgetall(f"EnvironmentProvider:{suite_id}")
+        configuration = self.testrun.join("provider").read_all()
         return bool(configuration)
 
-    def wait_for_configuration(self, suite_id):
+    def wait_for_configuration(self) -> bool:
         """Wait for ProviderRegistry to become configured.
 
-        :param suite_id: Suite ID to check for configuration.
-        :type suite_id: str
         :return: Whether or not a configuration exists for the suite ID.
-        :rtype: bool
         """
-        generator = self.etos.utils.wait(self.is_configured, suite_id=suite_id)
+        generator = self.etos.utils.wait(self.is_configured)
         result = None
         for result in generator:
             if result:
                 break
         return result
 
-    def validate(self, provider, schema):
+    def validate(self, provider: dict, schema: str) -> dict:
         """Validate a provider JSON against schema.
 
         :param provider: Provider JSON to validate.
-        :type provider: dict
         :param schema: JSON schema to validate against.
-        :type schema: str
         :return: Provider JSON that was validated.
-        :rtype: dict
         """
         self.logger.debug("Validating provider %r against %r", provider, schema)
         with open(schema, encoding="UTF-8") as schema_file:
@@ -90,110 +86,83 @@ class ProviderRegistry:
         jsonschema.validate(instance=provider, schema=schema)
         return provider
 
-    def get_log_area_provider_by_id(self, provider_id):
+    def get_log_area_provider_by_id(self, provider_id: str) -> Optional[dict]:
         """Get log area provider by name from the ETOS Database.
 
         Must have been registered with the /register endpoint.
 
         :param provider_id: ID of log area provider.
-        :type provider_id: str
         :return: Provider JSON or None.
-        :rtype: dict or None
         """
         self.logger.info("Getting log area provider %r", provider_id)
-        provider = self.database.reader.hget("EnvironmentProvider:LogAreaProviders", provider_id)
+        provider = self.providers.join(f"log-area/{provider_id}").read()
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
 
-    def get_iut_provider_by_id(self, provider_id):
+    def get_iut_provider_by_id(self, provider_id: str) -> Optional[dict]:
         """Get IUT provider by name from the ETOS Database.
 
         Must have been registered with the /register endpoint.
 
         :param provider_id: ID of IUT provider.
-        :type provider_id: str
         :return: Provider JSON or None.
-        :rtype: dict or None
         """
         self.logger.info("Getting iut provider %r", provider_id)
-        provider = self.database.reader.hget("EnvironmentProvider:IUTProviders", provider_id)
+        provider = self.providers.join(f"iut/{provider_id}").read()
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
 
-    def get_execution_space_provider_by_id(self, provider_id):
+    def get_execution_space_provider_by_id(self, provider_id: str) -> Optional[dict]:
         """Get execution space provider by name from the ETOS Database.
 
         Must have been registered with the /register endpoint.
 
         :param provider_id: ID of execution space provider.
-        :type provider_id: str
         :return: Provider JSON or None.
-        :rtype: dict or None
         """
         self.logger.info("Getting execution space provider %r", provider_id)
-        provider = self.database.reader.hget(
-            "EnvironmentProvider:ExecutionSpaceProviders", provider_id
-        )
+        provider = self.providers.join(f"execution-space/{provider_id}").read()
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
 
-    def register_log_area_provider(self, ruleset):
+    def register_log_area_provider(self, ruleset: dict) -> None:
         """Register a new log area provider.
 
         :param ruleset: Log area JSON definition to register.
-        :type ruleset: dict
         """
         data = self.validate(ruleset, log_area_provider_schema(ruleset))
         self.logger.info("Registering %r", data["log"]["id"])
-        self.database.writer.hdel("EnvironmentProvider:LogAreaProviders", data["log"]["id"])
-        self.database.writer.hset(
-            "EnvironmentProvider:LogAreaProviders", data["log"]["id"], json.dumps(data)
-        )
+        self.providers.join(f"log-area/{data['log']['id']}").write(json.dumps(data))
 
-    def register_iut_provider(self, ruleset):
+    def register_iut_provider(self, ruleset: dict) -> None:
         """Register a new IUT provider.
 
         :param ruleset: IUT provider JSON definition to register.
-        :type ruleset: dict
         """
         data = self.validate(ruleset, iut_provider_schema(ruleset))
         self.logger.info("Registering %r", data["iut"]["id"])
-        self.database.writer.hdel("EnvironmentProvider:IUTProviders", data["iut"]["id"])
-        self.database.writer.hset(
-            "EnvironmentProvider:IUTProviders", data["iut"]["id"], json.dumps(data)
-        )
+        self.providers.join(f"iut/{data['iut']['id']}").write(json.dumps(data))
 
-    def register_execution_space_provider(self, ruleset):
+    def register_execution_space_provider(self, ruleset: dict) -> None:
         """Register a new execution space provider.
 
         :param ruleset: Execution space provider JSON definition to register.
-        :type ruleset: dict
         """
         data = self.validate(ruleset, execution_space_provider_schema(ruleset))
         self.logger.info("Registering %r", data["execution_space"]["id"])
-        self.database.writer.hdel(
-            "EnvironmentProvider:ExecutionSpaceProviders", data["execution_space"]["id"]
-        )
-        self.database.writer.hset(
-            "EnvironmentProvider:ExecutionSpaceProviders",
-            data["execution_space"]["id"],
-            json.dumps(data),
+        self.providers.join(f"execution-space/{data['execution_space']['id']}").write(
+            json.dumps(data)
         )
 
-    def execution_space_provider(self, suite_id):
+    def execution_space_provider(self) -> Optional[ExecutionSpaceProvider]:
         """Get the execution space provider configured to suite ID.
 
-        :param suite_id: Suite ID to get execution space provider for.
-        :type suite_id: str
         :return: Execution space provider object.
-        :rtype: :obj:`environment_provider.execution_space.ExecutionSpaceProvider`
         """
-        provider_json = self.database.reader.hget(
-            f"EnvironmentProvider:{suite_id}", "ExecutionSpaceProvider"
-        )
+        provider_json = self.testrun.join("provider/execution-space").read()
         if provider_json:
             provider = ExecutionSpaceProvider(
                 self.etos,
@@ -204,33 +173,28 @@ class ProviderRegistry:
             return provider
         return None
 
-    def iut_provider(self, suite_id):
+    def iut_provider(self) -> Optional[IutProvider]:
         """Get the IUT provider configured to suite ID.
 
-        :param suite_id: Suite ID to get IUT provider for.
-        :type suite_id: str
         :return: IUT provider object.
-        :rtype: :obj:`environment_provider.iut.iut_provider.IutProvider`
         """
-        provider_str = self.database.reader.hget(f"EnvironmentProvider:{suite_id}", "IUTProvider")
-        if provider_str:
-            provider_json = json.loads(provider_str, object_pairs_hook=OrderedDict)
-            provider = IutProvider(self.etos, self.jsontas, provider_json.get("iut"))
+        provider_json = self.testrun.join("provider/iut").read()
+        if provider_json:
+            provider = IutProvider(
+                self.etos,
+                self.jsontas,
+                json.loads(provider_json, object_pairs_hook=OrderedDict).get("iut"),
+            )
             self.etos.config.get("PROVIDERS").append(provider)
             return provider
         return None
 
-    def log_area_provider(self, suite_id):
+    def log_area_provider(self) -> Optional[LogAreaProvider]:
         """Get the log area provider configured to suite ID.
 
-        :param suite_id: Suite ID to get log area provider for.
-        :type suite_id: str
         :return: Log area provider object.
-        :rtype: :obj:`environment_provider.logs.log_area_provider.LogAreaProvider`
         """
-        provider_json = self.database.reader.hget(
-            f"EnvironmentProvider:{suite_id}", "LogAreaProvider"
-        )
+        provider_json = self.testrun.join("provider/log-area").read()
         if provider_json:
             provider = LogAreaProvider(
                 self.etos,
@@ -241,15 +205,12 @@ class ProviderRegistry:
             return provider
         return None
 
-    def dataset(self, suite_id):
+    def dataset(self) -> Optional[dict]:
         """Get the dataset configured to suite ID.
 
-        :param suite_id: Suite ID to get dataset for.
-        :type suite_id: str
         :return: Dataset JSON data.
-        :rtype: dict
         """
-        dataset = self.database.reader.hget(f"EnvironmentProvider:{suite_id}", "Dataset")
+        dataset = self.testrun.join("provider/dataset").read()
         if dataset:
             return json.loads(dataset)
         return None
@@ -257,25 +218,18 @@ class ProviderRegistry:
     # pylint:disable=too-many-arguments
     def configure_environment_provider_for_suite(
         self,
-        suite_id,
-        iut_provider,
-        log_area_provider,
-        execution_space_provider,
-        dataset,
-    ):
+        iut_provider: dict,
+        log_area_provider: dict,
+        execution_space_provider: dict,
+        dataset: dict,
+    ) -> None:
         """Configure environment provider for a suite ID with providers and dataset.
 
-        :param suite_id: Suite ID to configure providers for.
-        :type suite_id: dict
         :param iut_provider: IUT provider definition to configure for suite ID.
-        :type iut_provider: dict
         :param log_area_provider: Log area provider definition to configure for suite ID.
-        :type log_area_provider: dict
         :param execution_space_provider: Execution space provider definition to configure
                                          for suite ID.
-        :type execution_space_provider: dict
         :param dataset: Dataset to configure for suite ID.
-        :type dataset: dict
         """
         self.logger.info("Configuring environment provider.")
         self.logger.info("Dataset: %r", dataset)
@@ -286,20 +240,10 @@ class ProviderRegistry:
         )
         self.logger.info("Log area provider: %r", log_area_provider.get("log", {}).get("id"))
         self.logger.info("Expire: 3600")
-        self.database.writer.hset(f"EnvironmentProvider:{suite_id}", "Dataset", json.dumps(dataset))
-        self.database.writer.hset(
-            f"EnvironmentProvider:{suite_id}",
-            "IUTProvider",
-            json.dumps(iut_provider),
+
+        self.testrun.join("provider/dataset").write(json.dumps(dataset), expire=3600)
+        self.testrun.join("provider/iut").write(json.dumps(iut_provider), expire=3600)
+        self.testrun.join("provider/log-area").write(json.dumps(log_area_provider), expire=3600)
+        self.testrun.join("provider/execution-space").write(
+            json.dumps(execution_space_provider), expire=3600
         )
-        self.database.writer.hset(
-            f"EnvironmentProvider:{suite_id}",
-            "ExecutionSpaceProvider",
-            json.dumps(execution_space_provider),
-        )
-        self.database.writer.hset(
-            f"EnvironmentProvider:{suite_id}",
-            "LogAreaProvider",
-            json.dumps(log_area_provider),
-        )
-        self.database.writer.expire(f"EnvironmentProvider:{suite_id}", 3600)

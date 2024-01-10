@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,19 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """External log area provider."""
-import os
-from json.decoder import JSONDecodeError
-import time
 import logging
+import os
+import time
 from copy import deepcopy
+from json.decoder import JSONDecodeError
 
 import requests
+from etos_lib import ETOS
+from jsontas.jsontas import JsonTas
+from packageurl import PackageURL
 
-from ..exceptions import (
-    LogAreaCheckinFailed,
-    LogAreaCheckoutFailed,
-    LogAreaNotAvailable,
-)
+from ..exceptions import LogAreaCheckinFailed, LogAreaCheckoutFailed, LogAreaNotAvailable
 from ..log_area import LogArea
 
 
@@ -50,15 +49,12 @@ class ExternalProvider:
 
     logger = logging.getLogger("External LogAreaProvider")
 
-    def __init__(self, etos, jsontas, ruleset):
+    def __init__(self, etos: ETOS, jsontas: JsonTas, ruleset: dict) -> None:
         """Initialize log area provider.
 
         :param etos: ETOS library instance.
-        :type etos: :obj:`etos_lib.etos.Etos`
         :param jsontas: JSONTas instance used to evaluate the rulesets.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param ruleset: JSONTas ruleset for handling log areas.
-        :type ruleset: dict
         """
         self.etos = etos
         self.etos.config.set("logs", [])
@@ -70,19 +66,17 @@ class ExternalProvider:
         self.logger.info("Initialized external log area provider %r", self.id)
 
     @property
-    def identity(self):
+    def identity(self) -> PackageURL:
         """IUT identity.
 
         :return: IUT identity as PURL object.
-        :rtype: :obj:`packageurl.PackageURL`
         """
         return self.dataset.get("identity")
 
-    def checkin(self, log_area):
+    def checkin(self, log_area: LogArea) -> None:
         """Check in log areas.
 
         :param log_area: Log area to check in.
-        :type log_area: :obj:`environment_provider.logs.log_area.LogArea` or list
         """
         end = self.etos.config.get("WAIT_FOR_LOG_AREA_TIMEOUT")
         if end is None:
@@ -122,7 +116,7 @@ class ExternalProvider:
                 continue
         raise TimeoutError(f"Unable to stop external provider {self.id!r}")
 
-    def checkin_all(self):
+    def checkin_all(self) -> None:
         """Check in all log areas.
 
         This method does the same as 'checkin'. It exists for API consistency.
@@ -130,15 +124,12 @@ class ExternalProvider:
         self.logger.debug("Checking in all checked out log areas")
         self.checkin(self.dataset.get("logs", []))
 
-    def start(self, minimum_amount, maximum_amount):
+    def start(self, minimum_amount: int, maximum_amount: int) -> str:
         """Send a start request to an external log area provider.
 
         :param minimum_amount: Minimum amount of log areas to request.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of log areas to request.
-        :type maximum_amount: int
         :return: The ID of the external log area provider request.
-        :rtype: str
         """
         self.logger.debug("Start external log area provider")
         data = {
@@ -166,7 +157,7 @@ class ExternalProvider:
             raise TimeoutError(f"Unable to start external provider {self.id!r}") from http_error
         raise TimeoutError(f"Unable to start external provider {self.id!r}")
 
-    def wait(self, provider_id):
+    def wait(self, provider_id: str) -> dict:
         """Wait for external log area provider to finish its request.
 
         :param provider_id: The ID of the external log area provider request.
@@ -212,11 +203,10 @@ class ExternalProvider:
             )
         return response
 
-    def check_error(self, response):
+    def check_error(self, response: dict) -> None:
         """Check response for errors and try to translate them to something usable.
 
         :param response: The response from the external log area provider.
-        :type response: dict
         """
         self.logger.debug("Checking response from external log area provider")
         try:
@@ -234,29 +224,26 @@ class ExternalProvider:
         # If this does not work, propagate JSONDecodeError up the stack.
         self.logger.debug("Status for response %r", response.json().get("status"))
 
-    def build_log_areas(self, response):
+    def build_log_areas(self, response: dict) -> list[LogArea]:
         """Build log area objects from external log area provider response.
 
         :param response: The response from the external log area provider.
-        :type response: dict
         :return: A list of log areas.
-        :rtype: list
         """
         return [
             LogArea(provider_id=self.id, **log_area) for log_area in response.get("log_areas", [])
         ]
 
-    def request_and_wait_for_log_areas(self, minimum_amount=0, maximum_amount=100):
+    def request_and_wait_for_log_areas(
+        self, minimum_amount: int = 0, maximum_amount: int = 100
+    ) -> list[LogArea]:
         """Wait for log areas from an external log area provider.
 
         :raises: LogAreaNotAvailable: If there are not available log areas after timeout.
 
         :param minimum_amount: Minimum amount of log areas to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of log areas to checkout.
-        :type maximum_amount: int
         :return: List of checked out log areas.
-        :rtype: list
         """
         try:
             provider_id = self.start(minimum_amount, maximum_amount)
@@ -282,7 +269,9 @@ class ExternalProvider:
             raise
         return log_areas
 
-    def wait_for_and_checkout_log_areas(self, minimum_amount=0, maximum_amount=100):
+    def wait_for_and_checkout_log_areas(
+        self, minimum_amount: int = 0, maximum_amount: int = 100
+    ) -> list[LogArea]:
         """Wait for log areas from an external log area provider.
 
         See: `request_and_wait_for_log_areas`
@@ -290,11 +279,8 @@ class ExternalProvider:
         :raises: LogAreaNotAvailable: If there are not available log areas after timeout.
 
         :param minimum_amount: Minimum amount of log areas to checkout.
-        :type minimum_amount: int
         :param maximum_amount: Maximum amount of log areas to checkout.
-        :type maximum_amount: int
         :return: List of checked out log areas.
-        :rtype: list
         """
         error = None
         triggered = None

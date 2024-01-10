@@ -1,4 +1,4 @@
-# Copyright 2020-2021 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,9 +15,9 @@
 # limitations under the License.
 """Celery connection module."""
 import os
+
 from celery import Celery
 from etos_lib.logging.logger import FORMAT_CONFIG
-
 
 FORMAT_CONFIG.identifier = "TaskListener"
 

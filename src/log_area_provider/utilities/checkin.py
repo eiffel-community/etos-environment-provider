@@ -1,4 +1,4 @@
-# Copyright 2020-2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,7 +15,11 @@
 # limitations under the License.
 """Log area provider check in module."""
 import logging
+
+from jsontas.jsontas import JsonTas
+
 from ..exceptions import LogAreaCheckinFailed
+from ..log_area import LogArea
 
 
 class Checkin:
@@ -23,26 +27,23 @@ class Checkin:
 
     logger = logging.getLogger("LogAreaProvider - Checkin")
 
-    def __init__(self, jsontas, checkin_ruleset):
+    def __init__(self, jsontas: JsonTas, checkin_ruleset: dict) -> None:
         """Initialize log area checkin handler.
 
         :param jsontas: JSONTas instance used to evaluate the ruleset.
-        :type jsontas: :obj:`jsontas.jsontas.JsonTas`
         :param checkin_ruleset: JSONTas ruleset for checking in log areas.
-        :type checkin_ruleset: dict
         """
         self.checkin_ruleset = checkin_ruleset
         self.jsontas = jsontas
         self.dataset = self.jsontas.dataset
 
-    def checkin(self, log_area):
+    def checkin(self, log_area: LogArea) -> None:
         """Check in a single log area, returning it to the log area provider.
 
         :raises: LogAreaCheckinFailed: If checkin failed due to any reason.
                                        Reason is added to exception.
 
         :param log_area: log area to checkin.
-        :type log_area: :obj:`environment_provider.logs.log_area.LogArea`
         """
         # Definition does not have the 'checkin' key. Just return.
         if self.checkin_ruleset is None:
@@ -59,7 +60,7 @@ class Checkin:
         except ValueError:
             pass
 
-    def checkin_all(self):
+    def checkin_all(self) -> None:
         """Checkin all checked out log areas."""
         self.logger.info("Checking in all checked out log areas.")
         for log_area in reversed(self.dataset.get("log_areas", [])):

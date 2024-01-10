@@ -1,4 +1,4 @@
-# Copyright 2021-2023 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,91 +14,111 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Fake database library helpers."""
-from etos_lib.lib.database import Database
+from queue import Queue
+from threading import Event, RLock, Timer
+from typing import Any, Iterator, Optional
 
-# pylint:disable=too-few-public-methods
+from etcd3gw.lease import Lease
 
-
-class FakeWriter:
-    """A fake writer object for the FakeDatabase."""
-
-    def __init__(self, db_dict):
-        """Init."""
-        self._writer_dict = db_dict
-
-    def set(self, key, value):
-        """Write a value to database.
-
-        :param key: Key to store value in.
-        :type key: any
-        :param value: Value to write.
-        :type value: str
-        """
-        self._writer_dict[key] = value
-        return self._writer_dict.get(key)
-
-    def hset(self, key, _id, value):
-        """Set hash into database."""
-        self.set(key + _id, value)
-
-    def hdel(self, _key, _value):
-        """Delete hash from database."""
-
-    def expire(self, _key, _value):
-        """Set expiration on database keys."""
+# pylint:disable=unused-argument
 
 
-class FakeReader:
-    """A fake reader object for the FakeDatabase."""
+class FakeDatabase:
+    """A fake database that follows the etcd client."""
 
-    def __init__(self, db_dict):
-        """Init."""
-        self._reader_dict = db_dict
-
-    def get(self, key):
-        """Get a single key from database.
-
-        :param key: Key to read from.
-        :type key: str
-        :return: Value of key.
-        :rtype: any
-        """
-        return self._reader_dict.get(key)
-
-    def hget(self, key, _id):
-        """Get hash from database."""
-        return self._reader_dict.get(key + _id)
-
-    def hgetall(self, key):
-        """Get all hash values from database."""
-        return {k: v for k, v in self._reader_dict.items() if k.startswith(key)}
-
-
-class FakeDatabase(Database):
-    """A fake database that follows the ETOS library database.
-
-    This fake database closely follows the ETOS library implementation.
-    The only difference between them is the writer and reader objects that
-    are created.
-    """
+    lock = RLock()
 
     def __init__(self):
         """Initialize fake reader and writer."""
         self.db_dict = {}
-        self.__writer = FakeWriter(self.db_dict)
-        self.__reader = FakeReader(self.db_dict)
-        super().__init__(self)
+        self.expire = []
+        self.leases = {}
+        self.watchers = []
 
     def __call__(self):
         """Database instantiation faker."""
         return self
 
-    @property
-    def writer(self):
-        """Return our fake writer."""
-        return self.__writer
+    def watch(self, path: str, range_end: Optional[str] = None) -> (Event, Iterator[dict]):
+        """Watch for changes of a path."""
+        canceled = Event()
+        queue = Queue()
 
-    @property
-    def reader(self):
-        """Return our fake reader."""
-        return self.__reader
+        def cancel():
+            canceled.set()
+            queue.put(None)
+
+        def iterator():
+            self.watchers.append(queue)
+            try:
+                while not canceled.is_set():
+                    event = queue.get()
+                    if event is None:
+                        canceled.set()
+                    if not canceled.is_set():
+                        yield event
+            finally:
+                self.watchers.remove(queue)
+
+        return iterator(), cancel
+
+    def __event(self, event: dict) -> None:
+        """Send an event to all watchers."""
+        for watcher in self.watchers:
+            watcher.put_nowait(event)
+
+    def put(self, item: str, value: Any, lease: Optional[Lease] = None) -> None:
+        """Put an item into database."""
+        with self.lock:
+            self.db_dict.setdefault(item, [])
+            if lease is not None:
+                self.leases[item] = lease
+                timer = Timer(self.expire[lease.id], self.delete, args=(item,))
+                timer.daemon = True
+                timer.start()
+            self.db_dict[item].append(str(value).encode())
+        self.__event({"kv": {"key": item.encode(), "value": str(value).encode()}})
+
+    def lease(self, ttl=30) -> Lease:
+        """Create a lease."""
+        with self.lock:
+            self.expire.append(ttl)
+        # ttl is unused since we do not actually make the post request that the regular
+        # etcd client does. First argument to `Lease` is the ID that was returned by the
+        # etcd server.
+        return Lease(len(self.expire) - 1)
+
+    def get(self, path: str) -> list[bytes]:
+        """Get an item from database."""
+        if isinstance(path, bytes):
+            path = path.decode()
+        with self.lock:
+            return list(reversed(self.db_dict.get(path, [])))
+
+    def get_prefix(self, prefix: str) -> list[tuple[bytes, dict]]:
+        """Get items based on prefix."""
+        if isinstance(prefix, bytes):
+            prefix = prefix.decode()
+        paths = []
+        with self.lock:
+            for key, value in self.db_dict.items():
+                if key.startswith(prefix):
+                    paths.append((value[-1], {"key": key.encode()}))
+        return paths
+
+    def delete(self, path: str) -> None:
+        """Delete a single item."""
+        with self.lock:
+            del self.db_dict[path]
+            if self.leases.get(path):
+                self.expire.pop(self.leases.get(path).id)
+                del self.leases[path]
+        self.__event({"kv": {"key": path.encode()}, "type": "DELETE"})
+
+    def delete_prefix(self, prefix: str) -> None:
+        """Delete items based on prefix."""
+        with self.lock:
+            db_dict = self.db_dict.copy()
+        for key in db_dict:
+            if key.startswith(prefix):
+                self.delete(key)

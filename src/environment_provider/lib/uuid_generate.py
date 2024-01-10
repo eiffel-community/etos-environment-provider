@@ -1,4 +1,4 @@
-# Copyright 2020 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -15,6 +15,7 @@
 # limitations under the License.
 """JSONTas uuid generate data structure module."""
 from uuid import uuid4
+
 from jsontas.data_structures.datastructure import DataStructure
 
 # pylint:disable=too-few-public-methods
@@ -23,10 +24,9 @@ from jsontas.data_structures.datastructure import DataStructure
 class UuidGenerate(DataStructure):
     """Generate UUID4 data structure."""
 
-    def execute(self):
+    def execute(self) -> tuple[None, str]:
         """Execute datastructure.
 
         :return: Name of key (None, to tell JSONTas to not override key name and a UUID4 string.
-        :rtype: tuple
         """
         return None, str(uuid4())

@@ -1,4 +1,4 @@
-# Copyright 2020-2023 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Test suite module."""
-import json
+from iut_provider.iut import Iut
+
+from .config import Config
 
 # pylint:disable=line-too-long
 
@@ -126,38 +128,28 @@ class TestSuite:
         }
     """
 
-    def __init__(self, test_suite_name, suite_runner_id, environment_provider_config, database):
+    def __init__(
+        self, test_suite_name: str, suite_runner_id: str, environment_provider_config: Config
+    ) -> None:
         """Initialize test suite representation.
 
         :param test_suite_name: Name of the test suite.
-        :type test_suite_name: str
         :param suite_runner_id: The test suite started that this suite correlates to.
-        :type suite_runner_id: str
         :param environment_provider_config: Environment provider config.
-        :type environment_provider_config: :obj:`environment_provider.lib.config.Config`
-        :param database: Database class to use.
-        :type database: class
         """
         self._suite = {"suite_name": test_suite_name, "sub_suites": []}
         self.test_suite_name = test_suite_name
         self.suite_runner_id = suite_runner_id
         self.environment_provider_config = environment_provider_config
-        self.expiry = 172800  # 48h
-        self.database = database
 
-    def add(self, test_runner, iut, suite, priority):
+    def add(self, test_runner: str, iut: Iut, suite: dict, priority: int) -> dict:
         """Add a new sub suite to suite.
 
         :param test_runner: The test runner to use for sub suite.
-        :type test_runner: str
         :param iut: IUT to execute the sub suite.
-        :type iut: :obj:`iut_provider.iut`
         :param suite: The sub suite.
-        :type suite: dict
         :param priority: Execution priority of the sub suite.
-        :type priority: int
         :return: The sub suite definition to be sent to the ESR.
-        :rtype: dict
         """
         sub_suite = {
             "name": f"{self.test_suite_name}_SubSuite_{len(self._suite['sub_suites'])}",
@@ -172,16 +164,9 @@ class TestSuite:
             "executor": suite.get("executor").as_dict,
             "log_area": suite.get("log_area").as_dict,
         }
-        self.database.write(
-            sub_suite["executor"]["instructions"]["identifier"],
-            json.dumps(sub_suite),
-        )
-        self.database.writer.expire(
-            sub_suite["executor"]["instructions"]["identifier"], self.expiry
-        )
         self._suite["sub_suites"].append(sub_suite)
         return sub_suite
 
-    def to_json(self):
+    def to_json(self) -> dict:
         """Return test suite as a JSON dictionary."""
         return self._suite

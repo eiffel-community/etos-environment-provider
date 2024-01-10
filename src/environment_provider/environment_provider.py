@@ -1,4 +1,4 @@
-# Copyright 2020-2023 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,32 +14,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS Environment Provider celery task module."""
-import os
-import uuid
-import logging
-import traceback
 import json
+import logging
+import os
 import time
-from tempfile import NamedTemporaryFile
-from datetime import datetime
-from threading import Lock
+import traceback
+import uuid
 from copy import deepcopy
+from datetime import datetime
+from tempfile import NamedTemporaryFile
+from threading import Lock
+from typing import Any, Union
+
 from etos_lib.etos import ETOS
-from etos_lib.lib.database import Database
 from etos_lib.lib.events import EiffelEnvironmentDefinedEvent
 from etos_lib.logging.logger import FORMAT_CONFIG
 from jsontas.jsontas import JsonTas
-from .splitter.split import Splitter
+
+from execution_space_provider.execution_space import ExecutionSpace
+from log_area_provider.log_area import LogArea
+
 from .lib.celery import APP
-from .lib.graphql import request_main_suite
 from .lib.config import Config
-from .lib.test_suite import TestSuite
-from .lib.registry import ProviderRegistry
-from .lib.json_dumps import JsonDumps
+from .lib.database import ETCDPath
 from .lib.encrypt import Encrypt
-from .lib.uuid_generate import UuidGenerate
+from .lib.graphql import request_main_suite
 from .lib.join import Join
+from .lib.json_dumps import JsonDumps
 from .lib.log_area import LogArea
+from .lib.registry import ProviderRegistry
+from .lib.test_suite import TestSuite
+from .lib.uuid_generate import UuidGenerate
+from .splitter.split import Splitter
 
 logging.getLogger("pika").setLevel(logging.WARNING)
 
@@ -63,15 +69,11 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     task_track_started = True  # Make celery task report 'STARTED' state
     lock = Lock()
 
-    def __init__(self, suite_id, suite_runner_ids, test_db=None):
+    def __init__(self, suite_id: str, suite_runner_ids: list[str]) -> None:
         """Initialize ETOS, dataset, provider registry and splitter.
 
         :param suite_id: Suite ID to get an environment for
-        :type suite_id: str
         :param suite_runner_ids: IDs from the suite runner to correlate sub suites.
-        :type suite_runner_ids: list
-        :param test_db: Override the database with a test database.
-        :type test_db: obj
         """
         FORMAT_CONFIG.identifier = suite_id
         self.logger.info("Initializing EnvironmentProvider task.")
@@ -79,7 +81,6 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.etos = ETOS("ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider")
 
         self.suite_id = suite_id
-        self.test_db = test_db
         self.suite_runner_ids = suite_runner_ids
 
         with self.lock:
@@ -92,7 +93,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             self.reset()
         self.splitter = Splitter(self.etos, {})
 
-    def reset(self):
+    def reset(self) -> None:
         """Create a new dataset and provider registry."""
         self.jsontas = JsonTas()
         self.dataset = self.jsontas.dataset
@@ -100,20 +101,17 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.dataset.add("uuid_generate", UuidGenerate)
         self.dataset.add("join", Join)
         self.dataset.add("encrypt", Encrypt)
-        self.database = self.test_db or Database()
-        self.registry = ProviderRegistry(self.etos, self.jsontas, self.database)
+        self.registry = ProviderRegistry(self.etos, self.jsontas, self.suite_id)
 
-    def new_dataset(self, dataset):
+    def new_dataset(self, dataset: dict) -> None:
         """Load a new dataset.
 
         :param dataset: Dataset to use for this configuration.
-        :type dataset: dict
         """
         self.reset()
         self.dataset.add("environment", os.environ)
         self.dataset.add("config", self.etos.config)
         self.dataset.add("identity", self.environment_provider_config.identity)
-        self.dataset.add("custom_data", self.environment_provider_config.custom_data)
 
         self.dataset.add("artifact_id", self.environment_provider_config.artifact_id)
         self.dataset.add("context", self.environment_provider_config.context)
@@ -126,18 +124,17 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.dataset.add("dataset", dataset)
         self.dataset.merge(dataset)
 
-        self.iut_provider = self.registry.iut_provider(self.suite_id)
-        self.log_area_provider = self.registry.log_area_provider(self.suite_id)
-        self.execution_space_provider = self.registry.execution_space_provider(self.suite_id)
+        self.iut_provider = self.registry.iut_provider()
+        self.log_area_provider = self.registry.log_area_provider()
+        self.execution_space_provider = self.registry.execution_space_provider()
 
-    def configure(self, suite_id):
+    def configure(self, suite_id: str) -> None:
         """Configure environment provider.
 
         :param suite_id: Suite ID for this task.
-        :type suite_id: str
         """
         self.logger.info("Configure environment provider.")
-        if not self.registry.wait_for_configuration(suite_id):
+        if not self.registry.wait_for_configuration():
             # TODO: Add link ref to docs that describe how the config is done.
             raise EnvironmentProviderNotConfigured(
                 "Please do a proper configuration of "
@@ -186,7 +183,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             ]
             raise NoEventDataFound(f"Missing: {', '.join(missing)}")
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Clean up by checkin in all checked out providers."""
         self.logger.info("Cleanup by checking in all checked out providers.")
         for provider in self.etos.config.get("PROVIDERS"):
@@ -196,22 +193,19 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 pass
 
     @staticmethod
-    def get_constraint(recipe, key):
+    def get_constraint(recipe: dict, key: str) -> Any:
         """Get a constraint key from an ETOS recipe.
 
         :param recipe: Recipe to get key from.
-        :type recipe: dict
         :param key: Key to get value from, from the constraints.
-        :type key: str
         :return: Constraint value.
-        :rtype: any
         """
         for constraint in recipe.get("constraints", []):
             if constraint.get("key") == key:
                 return constraint.get("value")
         return None
 
-    def create_test_suite_dict(self):
+    def create_test_suite_dict(self) -> dict:
         """Create a test suite dictionary based on test runners.
 
         I.e. If there is only one test_runner the dictionary would be::
@@ -266,11 +260,10 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 test_runners[test_runner]["unsplit_recipes"].append(recipe)
         return test_suites
 
-    def set_total_test_count_and_test_runners(self, test_runners):
+    def set_total_test_count_and_test_runners(self, test_runners: dict) -> None:
         """Set total test count and test runners to be used by the splitter algorithm.
 
         :param test_runners: Dictionary with test_runners as keys.
-        :type test_runners: dict
         """
         total_test_count = 0
         for _, data in test_runners.items():
@@ -278,11 +271,10 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.etos.config.set("TOTAL_TEST_COUNT", total_test_count)
         self.etos.config.set("NUMBER_OF_TESTRUNNERS", len(test_runners.keys()))
 
-    def verify_json(self, json_data):
+    def verify_json(self, json_data: Union[str, dict]) -> None:
         """Verify that JSON data can be serialized properly.
 
         :param json_data: JSON data to test.
-        :type json_data: str or dict
         """
         try:
             if isinstance(json_data, dict):
@@ -292,17 +284,14 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             self.logger.error(json_data)
             raise
 
-    def send_environment_events(self, url, sub_suite):
+    def send_environment_events(self, url: str, sub_suite: dict) -> None:
         """Send environment defined events for the created sub suites.
 
         :param url: URL to where the sub suite is uploaded.
-        :type url: str
         :param sub_suite: Test suite to send environment defined for.
-        :type sub_suite: dict
         """
         # In a valid sub suite all of these keys must exist
         # making this a safe assumption
-        identifier = sub_suite["executor"]["instructions"]["identifier"]
         event_id = sub_suite["executor"]["instructions"]["environment"]["ENVIRONMENT_ID"]
         event = EiffelEnvironmentDefinedEvent()
         event.meta.event_id = event_id
@@ -312,17 +301,19 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             {"name": sub_suite.get("name"), "uri": url},
         )
 
-        self.database.write(event.meta.event_id, identifier)
-        self.database.writer.hset(f"SubSuite:{identifier}", "EventID", event.meta.event_id)
-        self.database.writer.hset(f"SubSuite:{identifier}", "Suite", json.dumps(sub_suite))
+        # TODO: These shall be removed when API version v1 is used by the ESR and API.
+        environment = ETCDPath("/environment")
+        environment.join(f"{event_id}/testrun-id").write(self.suite_id)
+        environment.join(f"{event_id}/suite-id").write(sub_suite["test_suite_started_id"])
 
-    def upload_sub_suite(self, sub_suite):
+        suite = self.registry.testrun.join(f"suite/{sub_suite['test_suite_started_id']}")
+        suite.join(f"/subsuite/{event_id}/suite").write(json.dumps(sub_suite))
+
+    def upload_sub_suite(self, sub_suite: dict) -> str:
         """Upload sub suite to log area.
 
         :param sub_suite: Sub suite to upload to log area.
-        :type sub_suite: dict
         :return: URI to file uploaded.
-        :rtype: str
         """
         try:
             with NamedTemporaryFile(mode="w", delete=False) as sub_suite_file:
@@ -334,23 +325,21 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         finally:
             os.remove(sub_suite_file.name)
 
-    def checkout_an_execution_space(self):
+    def checkout_an_execution_space(self) -> ExecutionSpace:
         """Check out a single execution space.
 
         :return: An execution space
-        :rtype: obj:`execution_space_provider.execution_space`
         """
         return self.execution_space_provider.wait_for_and_checkout_execution_spaces(1, 1)[0]
 
-    def checkout_a_log_area(self):
+    def checkout_a_log_area(self) -> LogArea:
         """Check out a single log area.
 
         :return: A log area
-        :rtype: obj:`log_area_provider.log_area`
         """
         return self.log_area_provider.wait_for_and_checkout_log_areas(1, 1)[0]
 
-    def checkout_timeout(self):
+    def checkout_timeout(self) -> int:
         """Get timeout for checkout."""
         timeout = (
             self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
@@ -373,19 +362,16 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         )
         return endtime
 
-    def checkout(self, test_suite_name, test_runners, dataset, main_suite_id):
+    def checkout(
+        self, test_suite_name: str, test_runners: dict, dataset: dict, main_suite_id: str
+    ) -> dict:
         """Checkout an environment for a test suite.
 
         :param test_suite_name: Name of the test suite.
-        :type test_suite_name: str
         :param test_runners: The test runners and corresponding unassigned tests.
-        :type test_runners: dict
         :param dataset: The dataset for this particular checkout.
-        :type dataset: dict
         :param main_suite_id: The ID of the main suite that initiated this checkout.
-        :type main_suite_id: str
         :return: The test suite and environment json for this checkout.
-        :rtype: dict
         """
         self.logger.info("Checkout environment for %r", test_suite_name, extra={"user_log": True})
         self.new_dataset(dataset)
@@ -421,7 +407,6 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             test_suite_name,
             main_suite_id,
             self.environment_provider_config,
-            self.database,
         )
         finished = []
         timeout = self.checkout_timeout()
@@ -496,13 +481,11 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         )
         return test_suite_json
 
-    def wait_for_main_suite(self, test_suite_id):
+    def wait_for_main_suite(self, test_suite_id: str) -> dict:
         """Wait for main test suite started to be available in ER.
 
         :param test_suite_id: The ID of the test suite started.
-        :type test_suite_id: str
         :return: a test suite started event.
-        :rtype: dict
         """
         main_suite = request_main_suite(self.etos, test_suite_id)
         timeout = time.time() + 30
@@ -511,18 +494,17 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             time.sleep(5)
         return main_suite
 
-    def _run(self):
+    def _run(self) -> dict:
         """Run the environment provider task.
 
         :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
-        :rtype: dict
         """
         suites = []
         error = None
 
         test_suites = self.create_test_suite_dict()
 
-        datasets = self.registry.dataset(self.suite_id)
+        datasets = self.registry.dataset()
         if isinstance(datasets, list):
             assert len(datasets) == len(
                 test_suites
@@ -562,7 +544,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     self.etos.events.send_activity_finished(triggered, outcome)
         return {"suites": suites, "error": None}
 
-    def run(self):
+    def run(self) -> dict:
         """Run the environment provider task.
 
         See: `_run`
@@ -585,17 +567,12 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
 
 
 @APP.task(name="EnvironmentProvider")
-def get_environment(suite_id, suite_runner_ids, test_db=None):
+def get_environment(suite_id: str, suite_runner_ids: list[str]) -> dict:
     """Get an environment for ETOS test executions.
 
     :param suite_id: Suite ID to get an environment for
-    :type suite_id: str
     :param suite_runner_ids: Suite runner correlation IDs.
-    :type suite_runner_ids: list
-    :param test_db: Override the database with a test database.
-    :type test_db: obj
     :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
-    :rtype: dict
     """
-    environment_provider = EnvironmentProvider(suite_id, suite_runner_ids, test_db)
+    environment_provider = EnvironmentProvider(suite_id, suite_runner_ids)
     return environment_provider.run()

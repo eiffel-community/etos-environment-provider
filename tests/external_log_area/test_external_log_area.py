@@ -1,4 +1,4 @@
-# Copyright 2022 Axis Communications AB.
+# Copyright Axis Communications AB.
 #
 # For a full list of individual contributors, please see the commit history.
 #
@@ -14,23 +14,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Integration tests for the external log area."""
-import os
 import logging
+import os
 import unittest
 
 from etos_lib import ETOS
 from jsontas.jsontas import JsonTas
 from packageurl import PackageURL
 
-from tests.library.fake_server import FakeServer
-
-from log_area_provider.utilities.external_provider import ExternalProvider
 from log_area_provider.exceptions import (
     LogAreaCheckinFailed,
     LogAreaCheckoutFailed,
     LogAreaNotAvailable,
 )
 from log_area_provider.log_area import LogArea
+from log_area_provider.utilities.external_provider import ExternalProvider
+from tests.library.fake_server import FakeServer
 
 
 class TestExternalLogArea(unittest.TestCase):
