@@ -35,7 +35,7 @@ def get_execution_space_provider_id(request: Request) -> Optional[str]:
     """Get an execution space provider ID from the request.
 
     :param request: The falcon request object.
-    :return: An IUT provider ID.
+    :return: An execution space provider ID.
     """
     return request.get_media().get("execution_space_provider")
 
@@ -44,16 +44,16 @@ def get_log_area_provider_id(request: Request) -> Optional[str]:
     """Get an log area provider ID from the request.
 
     :param request: The falcon request object.
-    :return: An IUT provider ID.
+    :return: A log area provider ID.
     """
     return request.get_media().get("log_area_provider")
 
 
-def get_dataset(request: Request) -> Optional[str]:
+def get_dataset(request: Request) -> Optional[dict, list]:
     """Get a dataset from the request.
 
     :param request: The falcon request object.
-    :return: An IUT provider ID.
+    :return: A dataset.
     """
     dataset = request.get_media().get("dataset")
     if dataset is not None:

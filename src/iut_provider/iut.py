@@ -52,7 +52,7 @@ class Iut:
             setattr(self, key, value)
 
     @property
-    def as_dict(self) -> None:
+    def as_dict(self) -> dict:
         """Represent IUT as dictionary.
 
         :return: IUT dictionary.

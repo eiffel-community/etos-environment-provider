@@ -63,7 +63,7 @@ def get_single_release_id(request: Request) -> Optional[str]:
 
 def checkin_provider(
     item: dict, provider: Union[IutProvider, ExecutionSpaceProvider, LogAreaProvider]
-) -> tuple[bool, Exception]:
+) -> tuple[bool, Optional[Exception]]:
     """Check in a provider.
 
     :param item: Item to check in.

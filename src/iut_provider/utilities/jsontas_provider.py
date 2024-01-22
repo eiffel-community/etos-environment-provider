@@ -34,7 +34,7 @@ class JSONTasProvider:
 
     logger = logging.getLogger("IUTProvider")
 
-    def __init__(self, etos: ETOS, jsontas: JsonTas, ruleset: dict):
+    def __init__(self, etos: ETOS, jsontas: JsonTas, ruleset: dict) -> None:
         """Initialize IUT provider.
 
         :param etos: ETOS library instance.

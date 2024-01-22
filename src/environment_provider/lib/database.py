@@ -41,13 +41,20 @@ class ETCDPath:
         self.path = path
 
     def join(self, new: str) -> "ETCDPath":
-        """Join this path with another path."""
+        """Join this path with another path.
+
+        :param new: New child path 'below' current.
+        """
         if new.startswith("/"):
             new = new[1:]
         return ETCDPath("/".join((self.path, new)))
 
     def write(self, value: Any, expire: Optional[int] = None) -> None:
-        """Write a value to an ETCD path."""
+        """Write a value to an ETCD path.
+
+        :param value: Value to write to database.
+        :param expire: Optional expiration time in seconds.
+        """
         lease = None
         if expire is not None:
             lease = self.database.lease(expire)
