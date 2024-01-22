@@ -15,7 +15,7 @@
 # limitations under the License.
 """Backend for the configuration requests."""
 import json
-from typing import Optional
+from typing import Optional, Union
 
 from falcon import Request
 
@@ -49,7 +49,7 @@ def get_log_area_provider_id(request: Request) -> Optional[str]:
     return request.get_media().get("log_area_provider")
 
 
-def get_dataset(request: Request) -> Optional[dict, list]:
+def get_dataset(request: Request) -> Union[None, dict, list]:
     """Get a dataset from the request.
 
     :param request: The falcon request object.
