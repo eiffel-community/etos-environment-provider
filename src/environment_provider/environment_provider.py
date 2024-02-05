@@ -69,11 +69,12 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     task_track_started = True  # Make celery task report 'STARTED' state
     lock = Lock()
 
-    def __init__(self, suite_id: str, suite_runner_ids: list[str]) -> None:
+    def __init__(self, suite_id: str, suite_runner_ids: list[str], copy: bool = True) -> None:
         """Initialize ETOS, dataset, provider registry and splitter.
 
         :param suite_id: Suite ID to get an environment for
         :param suite_runner_ids: IDs from the suite runner to correlate sub suites.
+        :param copy: Whether or not to copy the etos config. Set to False if not running celery.
         """
         FORMAT_CONFIG.identifier = suite_id
         self.logger.info("Initializing EnvironmentProvider task.")
@@ -89,7 +90,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             # configuration dictionary.
             # The impact of not doing this is that the environment provider would re-use
             # another workers configuration instead of using its own.
-            self.etos.config.config = deepcopy(self.etos.config.config)
+            if copy:
+                self.etos.config.config = deepcopy(self.etos.config.config)
             self.reset()
         self.splitter = Splitter(self.etos, {})
 

@@ -26,4 +26,6 @@ except PackageNotFoundError:
 
 DEV = os.getenv("DEV", "false").lower() == "true"
 ENVIRONMENT = "development" if DEV else "production"
-setup_logging("ETOS Environment Provider API", VERSION, ENVIRONMENT)
+# Disable extra logging, if the environment provider is imported instead of executed via celery
+if os.getenv("ENVIRONMENT_PROVIDER_DISABLE_LOGGING", "false") == "false":
+    setup_logging("ETOS Environment Provider API", VERSION, ENVIRONMENT)
