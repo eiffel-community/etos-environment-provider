@@ -193,16 +193,13 @@ class Config:  # pylint:disable=too-many-instance-attributes
                 if batch is not None:
                     self.__test_suite = batch
                 elif batch_uri is not None:
-                    json_header = {"Accept": "application/json"}
-                    json_response = self.etos.http.wait_for_request(
+                    response = self.etos.http.get(
                         batch_uri,
                         timeout=self.etos.config.get("TEST_SUITE_TIMEOUT"),
-                        headers=json_header,
+                        headers={"Accept": "application/json"},
                     )
-                    response = {}
-                    for response in json_response:
-                        break
-                    self.__test_suite = response
+                    response.raise_for_status()
+                    self.__test_suite = response.json()
             except AttributeError:
                 pass
         return self.__test_suite if self.__test_suite else []

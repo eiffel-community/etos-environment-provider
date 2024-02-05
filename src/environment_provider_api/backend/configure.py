@@ -127,9 +127,9 @@ def get_configuration(provider_registry: ProviderRegistry) -> dict:
     dataset = provider_registry.dataset()
     return {
         "iut_provider": iut_provider.ruleset if iut_provider else None,
-        "execution_space_provider": execution_space_provider.ruleset
-        if execution_space_provider
-        else None,
+        "execution_space_provider": (
+            execution_space_provider.ruleset if execution_space_provider else None
+        ),
         "log_area_provider": log_area_provider.ruleset if log_area_provider else None,
         "dataset": dataset,
     }

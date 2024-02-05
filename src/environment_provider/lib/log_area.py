@@ -16,18 +16,17 @@
 """Environment provider log area handler."""
 import logging
 import os
-import time
 import traceback
 from copy import deepcopy
 from json.decoder import JSONDecodeError
-from typing import IO, Iterator, Optional, Union
+from typing import IO, Optional, Union
 
 from cryptography.fernet import Fernet
 from etos_lib import ETOS
 from requests import Response
 from requests.auth import HTTPBasicAuth, HTTPDigestAuth
+from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import HTTPError
-from urllib3.exceptions import MaxRetryError, NewConnectionError
 
 # pylint:disable=too-many-arguments
 
@@ -68,16 +67,14 @@ class LogArea:  # pylint:disable=too-few-public-methods
 
         with open(log, "rb") as log_file:
             for _ in range(3):
-                request_generator = self.__retry_upload(log_file=log_file, **upload)
                 try:
-                    for response in request_generator:
-                        self.logger.debug("%r", response)
-                        if not upload.get("as_json", True):
-                            self.logger.debug("%r", response.text)
-                        self.logger.info("Uploaded log %r.", log)
-                        self.logger.info("Upload URI          %r", upload["url"])
-                        self.logger.info("Data:               %r", data)
-                        break
+                    response = self.__upload(log_file=log_file, **upload)
+                    self.logger.debug("%r", response)
+                    if not upload.get("as_json", True):
+                        self.logger.debug("%r", response.text)
+                    self.logger.info("Uploaded log %r.", log)
+                    self.logger.info("Upload URI          %r", upload["url"])
+                    self.logger.info("Data:               %r", data)
                     break
                 except:  # noqa pylint:disable=bare-except
                     self.logger.error("%r", traceback.format_exc())
@@ -85,7 +82,7 @@ class LogArea:  # pylint:disable=too-few-public-methods
                     self.logger.error("Attempted upload of %r", log)
         return upload["url"]
 
-    def __retry_upload(
+    def __upload(
         self,
         verb: str,
         url: str,
@@ -93,7 +90,7 @@ class LogArea:  # pylint:disable=too-few-public-methods
         timeout: Optional[int] = None,
         as_json: bool = True,
         **requests_kwargs: dict,
-    ) -> Iterator[Union[Response, dict]]:
+    ) -> Union[Response, dict]:
         """Attempt to connect to url for x time.
 
         :param verb: Which HTTP verb to use. GET, PUT, POST
@@ -107,30 +104,18 @@ class LogArea:  # pylint:disable=too-few-public-methods
         """
         if timeout is None:
             timeout = self.etos.debug.default_http_timeout
-        end_time = time.time() + timeout
         self.logger.debug("Retrying URL %s for %d seconds with a %s request.", url, timeout, verb)
-        iteration = 0
-        while time.time() < end_time:
-            iteration += 1
-            self.logger.debug("Iteration: %d", iteration)
-            try:
-                # Seek back to the start of the file so that the uploaded file
-                # is not 0 bytes in size.
-                log_file.seek(0)
-                yield self.etos.http.request(verb, url, as_json, data=log_file, **requests_kwargs)
-                break
-            except (
-                ConnectionError,
-                HTTPError,
-                NewConnectionError,
-                MaxRetryError,
-                TimeoutError,
-                JSONDecodeError,
-            ):
-                self.logger.warning("%r", traceback.format_exc())
-                time.sleep(2)
-        else:
-            raise ConnectionError(f"Unable to {verb} {url} with params {requests_kwargs}")
+
+        method = getattr(self.etos.http, verb.lower())
+        try:
+            response = method(url, data=log_file, timeout=timeout, **requests_kwargs)
+            response.raise_for_status()
+            if as_json:
+                return response.json()
+            return response
+        except (HTTPError, RequestsConnectionError, JSONDecodeError) as error:
+            # pylint:disable=broad-exception-raised
+            raise Exception("Failed to upload test suite to {url!r}") from error
 
     def __decrypt(self, password: Union[str, dict]) -> str:
         """Decrypt a password using an encryption key.

@@ -21,6 +21,7 @@ import unittest
 from etos_lib import ETOS
 from jsontas.jsontas import JsonTas
 from packageurl import PackageURL
+from requests.exceptions import RetryError
 
 from execution_space_provider.exceptions import (
     ExecutionSpaceCheckinFailed,
@@ -71,6 +72,7 @@ class TestExternalExecutionSpace(unittest.TestCase):
             ruleset = {"id": "test_provider_start", "start": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
             provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
             self.logger.info("STEP: Send a start request.")
             start_id = provider.start(1, 2)
             self.logger.info("STEP: Verify that the ID from the start request is returned.")
@@ -102,13 +104,14 @@ class TestExternalExecutionSpace(unittest.TestCase):
         )
         expected_start_id = "123"
 
-        with FakeServer(["bad_request", "ok"], [{}, {"id": expected_start_id}]) as server:
+        with FakeServer(["service_unavailable", "ok"], [{}, {"id": expected_start_id}]) as server:
             ruleset = {
                 "id": "test_provider_start_http_exception",
                 "start": {"host": server.host},
             }
             self.logger.info("STEP: Initialize an external provider.")
             provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
             self.logger.info("STEP: Send a start request that fails.")
             start_id = provider.start(1, 2)
             self.logger.info("STEP: Verify that the start method tries again on HTTP errors.")
@@ -116,15 +119,15 @@ class TestExternalExecutionSpace(unittest.TestCase):
             self.assertEqual(start_id, expected_start_id)
 
     def test_provider_start_timeout(self):
-        """Test that the start method raises a TimeoutError.
+        """Test that the start method raises a RetryError.
 
         Approval criteria:
-            - The start method shall raise TimeoutError if the timeout is reached.
+            - The start method shall raise RetryError if the timeout is reached.
 
         Test steps::
             1. Initialize an external provider.
             2. Send a start request which will never finish.
-            3. Verify that the start method raises TimeoutError.
+            3. Verify that the start method raises RetryError.
         """
         etos = ETOS("testing_etos", "testing_etos", "testing_etos")
         jsontas = JsonTas()
@@ -141,17 +144,18 @@ class TestExternalExecutionSpace(unittest.TestCase):
         )
         os.environ["ETOS_DEFAULT_HTTP_TIMEOUT"] = "1"
 
-        with FakeServer("bad_request", {}) as server:
+        with FakeServer("service_unavailable", {}) as server:
             ruleset = {
                 "id": "test_provider_start_timeout",
                 "start": {"host": server.host},
             }
             self.logger.info("STEP: Initialize an external provider.")
             provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
             self.logger.info("STEP: Send a start request which will never finish.")
 
-            with self.assertRaises(TimeoutError):
-                self.logger.info("STEP: Verify that the start method raises TimeoutError.")
+            with self.assertRaises(RetryError):
+                self.logger.info("STEP: Verify that the start method raises RetryError.")
                 provider.start(1, 2)
 
     def test_provider_stop(self):
@@ -185,6 +189,7 @@ class TestExternalExecutionSpace(unittest.TestCase):
             ruleset = {"id": "test_provider_stop", "stop": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
             provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
             self.logger.info("STEP: Send a stop request for a single execution space.")
             provider.checkin(execution_space)
             self.logger.info("STEP: Verify that the stop endpoint is called.")
@@ -229,6 +234,7 @@ class TestExternalExecutionSpace(unittest.TestCase):
             ruleset = {"id": "test_provider_stop_many", "stop": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
             provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
             self.logger.info("STEP: Send a stop request for multiple execution spaces.")
             provider.checkin_all()
             self.logger.info("STEP: Verify that the stop endpoint is called.")
@@ -266,6 +272,7 @@ class TestExternalExecutionSpace(unittest.TestCase):
             ruleset = {"id": "test_provider_stop_failed", "stop": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
             provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
             self.logger.info("STEP: Send a stop request that fails.")
             with self.assertRaises(ExecutionSpaceCheckinFailed):
                 self.logger.info(
@@ -307,6 +314,7 @@ class TestExternalExecutionSpace(unittest.TestCase):
             }
             self.logger.info("STEP: Initialize an external provider.")
             provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
             self.logger.info("STEP: Send a stop request that fails.")
             with self.assertRaises(TimeoutError):
                 self.logger.info("STEP: Verify that the checkin method raises a TimeoutError.")
@@ -342,6 +350,7 @@ class TestExternalExecutionSpace(unittest.TestCase):
             ruleset = {"id": "test_provider_status", "status": {"host": server.host}}
             self.logger.info("STEP: Initialize an external provider.")
             provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
             self.logger.info("STEP: Send a status request for a started execution space provider.")
             response = provider.wait("1")
             self.logger.info("STEP: Verify that the wait method return response on DONE.")
@@ -380,6 +389,7 @@ class TestExternalExecutionSpace(unittest.TestCase):
             }
             self.logger.info("STEP: Initialize an external provider.")
             provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
             self.logger.info("STEP: Send a status request for a started execution space provider.")
             provider.wait("1")
             self.logger.info("STEP: Verify that the wait method waits on PENDING.")
@@ -418,6 +428,7 @@ class TestExternalExecutionSpace(unittest.TestCase):
             }
             self.logger.info("STEP: Initialize an external provider.")
             provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
             self.logger.info("STEP: Send a status request for a started execution space provider.")
             with self.assertRaises(ExecutionSpaceCheckoutFailed):
                 self.logger.info(
@@ -464,6 +475,7 @@ class TestExternalExecutionSpace(unittest.TestCase):
                 }
                 self.logger.info("STEP: Initialize an external provider.")
                 provider = ExternalProvider(etos, jsontas, ruleset)
+                provider.http.adapter.max_retries.status = 1
                 self.logger.info(
                     "STEP: Send a status request for a started execution space provider."
                 )
@@ -505,6 +517,7 @@ class TestExternalExecutionSpace(unittest.TestCase):
             }
             self.logger.info("STEP: Initialize an external provider.")
             provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
             self.logger.info("STEP: Send a status request that times out.")
             with self.assertRaises(TimeoutError):
                 self.logger.info("STEP: Verify that the wait method raises TimeoutError.")
@@ -559,6 +572,7 @@ class TestExternalExecutionSpace(unittest.TestCase):
             }
             self.logger.info("STEP: Initialize an external provider.")
             provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
             self.logger.info(
                 "STEP: Send a checkout request via the external execution space provider."
             )

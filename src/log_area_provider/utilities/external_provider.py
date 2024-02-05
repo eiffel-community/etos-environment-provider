@@ -22,8 +22,11 @@ from json.decoder import JSONDecodeError
 
 import requests
 from etos_lib import ETOS
+from etos_lib.lib.http import Http
 from jsontas.jsontas import JsonTas
 from packageurl import PackageURL
+from requests.exceptions import HTTPError
+from urllib3.util import Retry
 
 from ..exceptions import LogAreaCheckinFailed, LogAreaCheckoutFailed, LogAreaNotAvailable
 from ..log_area import LogArea
@@ -63,6 +66,18 @@ class ExternalProvider:
         self.id = self.ruleset.get("id")  # pylint:disable=invalid-name
         self.context = self.etos.config.get("environment_provider_context")
         self.identifier = self.etos.config.get("SUITE_ID")
+        self.http = Http(
+            retry=Retry(
+                total=None,
+                read=0,
+                connect=10,  # With 1 as backoff_factor, will retry for 1023s
+                status=10,  # With 1 as backoff_factor, will retry for 1023s
+                backoff_factor=1,
+                other=0,
+                allowed_methods=["POST", "GET"],
+                status_forcelist=Retry.RETRY_AFTER_STATUS_CODES,  # 413, 429, 503
+            )
+        )
         self.logger.info("Initialized external log area provider %r", self.id)
 
     @property
@@ -143,19 +158,16 @@ class ExternalProvider:
             "dataset": self.dataset.get("dataset"),
             "context": self.dataset.get("context"),
         }
-        response_iterator = self.etos.http.retry(
-            "POST",
-            self.ruleset.get("start", {}).get("host"),
-            json=data,
-            headers={"X-ETOS-ID": self.identifier},
-        )
         try:
-            for response in response_iterator:
-                return response.get("id")
-        except ConnectionError as http_error:
-            self.logger.error("Could not start external provider due to a connection error")
-            raise TimeoutError(f"Unable to start external provider {self.id!r}") from http_error
-        raise TimeoutError(f"Unable to start external provider {self.id!r}")
+            response = self.http.post(
+                self.ruleset.get("start", {}).get("host"),
+                json=data,
+                headers={"X-ETOS-ID": self.identifier},
+            )
+            response.raise_for_status()
+            return response.json().get("id")
+        except (HTTPError, JSONDecodeError) as error:
+            raise Exception(f"Could not start external provider {self.id!r}") from error
 
     def wait(self, provider_id: str) -> dict:
         """Wait for external log area provider to finish its request.
