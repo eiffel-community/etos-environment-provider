@@ -17,7 +17,7 @@
 import logging
 import os
 import time
-from typing import Iterator
+from typing import Iterator, Union
 
 from etos_lib import ETOS
 from packageurl import PackageURL
@@ -168,7 +168,7 @@ class Config:  # pylint:disable=too-many-instance-attributes
             return ""
 
     @property
-    def identity(self) -> str:
+    def identity(self) -> Union[PackageURL, str]:
         """Get artifact identity.
 
         :return: Artifact identity.
