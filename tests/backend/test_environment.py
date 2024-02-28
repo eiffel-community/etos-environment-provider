@@ -144,13 +144,9 @@ class TestEnvironmentBackend(unittest.TestCase):
             f"/testrun/{test_suite_id}/suite/fakeid/subsuite/fakeid/suite",
             json.dumps(
                 {
-                    "sub_suites": [
-                        {
-                            "iut": iut,
-                            "executor": executor,
-                            "log_area": log_area,
-                        }
-                    ]
+                    "iut": iut,
+                    "executor": executor,
+                    "log_area": log_area,
                 }
             ),
         )
@@ -227,13 +223,9 @@ class TestEnvironmentBackend(unittest.TestCase):
             f"/testrun/{test_suite_id}/suite/fakeid/subsuite/fakeid/suite",
             json.dumps(
                 {
-                    "sub_suites": [
-                        {
-                            "iut": iut,
-                            "executor": executor,
-                            "log_area": log_area,
-                        }
-                    ]
+                    "iut": iut,
+                    "executor": executor,
+                    "log_area": log_area,
                 }
             ),
         )

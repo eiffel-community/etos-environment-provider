@@ -107,13 +107,9 @@ class TestEnvironment(unittest.TestCase):
             {
                 "suites": [
                     {
-                        "sub_suites": [
-                            {
-                                "iut": iut,
-                                "executor": executor,
-                                "log_area": log_area,
-                            }
-                        ]
+                        "iut": iut,
+                        "executor": executor,
+                        "log_area": log_area,
                     }
                 ]
             },

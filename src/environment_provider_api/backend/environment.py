@@ -134,11 +134,10 @@ def release_full_environment(etos: ETOS, jsontas: JsonTas, suite_id: str) -> tup
     registry = ProviderRegistry(etos, jsontas, suite_id)
     for suite, metadata in registry.testrun.join("suite").read_all():
         suite = json.loads(suite)
-        for sub_suite in suite.get("sub_suites", []):
-            try:
-                failure = release_environment(etos, jsontas, registry, sub_suite)
-            except json.JSONDecodeError as exception:
-                failure = exception
+        try:
+            failure = release_environment(etos, jsontas, registry, suite)
+        except json.JSONDecodeError as exception:
+            failure = exception
         ETCDPath(metadata.get("key")).delete()
     registry.testrun.delete_all()
 

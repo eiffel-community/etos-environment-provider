@@ -348,6 +348,20 @@ class TestEnvironmentProvider(unittest.TestCase):
         suite_runner_ids = ["14ffc8d7-572a-4f2f-9382-923de2bcf50a"]
         task_id = "d9689ea5-837b-48c1-87b1-3de122b3f2fe"
         database.put(f"/environment/{task_id}/suite-id", suite_id)
+        database.put(
+            f"/environment/provider/iut/{IUT_PROVIDER['iut']['id']}", json.dumps(IUT_PROVIDER)
+        )
+        database.put(
+            f"/environment/provider/log-area/{LOG_AREA_PROVIDER['log']['id']}",
+            json.dumps(LOG_AREA_PROVIDER),
+        )
+        database.put(
+            (
+                "/environment/provider/execution-space/"
+                f"{EXECUTION_SPACE_PROVIDER['execution_space']['id']}"
+            ),
+            json.dumps(EXECUTION_SPACE_PROVIDER),
+        )
         database.put(f"/testrun/{suite_id}/environment-provider/task-id", task_id)
 
         database.put(f"/testrun/{suite_id}/tercc", json.dumps(tercc))
