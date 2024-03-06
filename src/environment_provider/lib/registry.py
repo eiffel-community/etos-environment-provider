@@ -23,9 +23,9 @@ import jsonschema
 from etos_lib.etos import ETOS
 from jsontas.jsontas import JsonTas
 
-from execution_space_provider import ExecutionSpaceProvider, execution_space_provider_schema
-from iut_provider import IutProvider, iut_provider_schema
-from log_area_provider import LogAreaProvider, log_area_provider_schema
+from execution_space_provider import ExecutionSpaceProvider
+from iut_provider import IutProvider
+from log_area_provider import LogAreaProvider
 
 from .database import ETCDPath
 
@@ -128,35 +128,6 @@ class ProviderRegistry:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
 
-    def register_log_area_provider(self, ruleset: dict) -> None:
-        """Register a new log area provider.
-
-        :param ruleset: Log area JSON definition to register.
-        """
-        data = self.validate(ruleset, log_area_provider_schema(ruleset))
-        self.logger.info("Registering %r", data["log"]["id"])
-        self.providers.join(f"log-area/{data['log']['id']}").write(json.dumps(data))
-
-    def register_iut_provider(self, ruleset: dict) -> None:
-        """Register a new IUT provider.
-
-        :param ruleset: IUT provider JSON definition to register.
-        """
-        data = self.validate(ruleset, iut_provider_schema(ruleset))
-        self.logger.info("Registering %r", data["iut"]["id"])
-        self.providers.join(f"iut/{data['iut']['id']}").write(json.dumps(data))
-
-    def register_execution_space_provider(self, ruleset: dict) -> None:
-        """Register a new execution space provider.
-
-        :param ruleset: Execution space provider JSON definition to register.
-        """
-        data = self.validate(ruleset, execution_space_provider_schema(ruleset))
-        self.logger.info("Registering %r", data["execution_space"]["id"])
-        self.providers.join(f"execution-space/{data['execution_space']['id']}").write(
-            json.dumps(data)
-        )
-
     def execution_space_provider(self) -> Optional[ExecutionSpaceProvider]:
         """Get the execution space provider configured to suite ID.
 
@@ -214,36 +185,3 @@ class ProviderRegistry:
         if dataset:
             return json.loads(dataset)
         return None
-
-    # pylint:disable=too-many-arguments
-    def configure_environment_provider_for_suite(
-        self,
-        iut_provider: dict,
-        log_area_provider: dict,
-        execution_space_provider: dict,
-        dataset: dict,
-    ) -> None:
-        """Configure environment provider for a suite ID with providers and dataset.
-
-        :param iut_provider: IUT provider definition to configure for suite ID.
-        :param log_area_provider: Log area provider definition to configure for suite ID.
-        :param execution_space_provider: Execution space provider definition to configure
-                                         for suite ID.
-        :param dataset: Dataset to configure for suite ID.
-        """
-        self.logger.info("Configuring environment provider.")
-        self.logger.info("Dataset: %r", dataset)
-        self.logger.info("IUT provider: %r", iut_provider.get("iut", {}).get("id"))
-        self.logger.info(
-            "Execution space provider: %r",
-            execution_space_provider.get("execution_space", {}).get("id"),
-        )
-        self.logger.info("Log area provider: %r", log_area_provider.get("log", {}).get("id"))
-        self.logger.info("Expire: 3600")
-
-        self.testrun.join("provider/dataset").write(json.dumps(dataset), expire=3600)
-        self.testrun.join("provider/iut").write(json.dumps(iut_provider), expire=3600)
-        self.testrun.join("provider/log-area").write(json.dumps(log_area_provider), expire=3600)
-        self.testrun.join("provider/execution-space").write(
-            json.dumps(execution_space_provider), expire=3600
-        )
