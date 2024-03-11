@@ -74,7 +74,6 @@ class List:  # pylint:disable=too-few-public-methods
                     "SOURCE_HOST": self.etos.config.get("source").get("host"),
                     "ETOS_GRAPHQL_SERVER": self.etos.debug.graphql_server,
                     "ETOS_API": self.etos.debug.etos_api,
-                    "ETOS_ENVIRONMENT_PROVIDER": self.etos.debug.environment_provider,
                 },
                 "parameters": {},
             },
