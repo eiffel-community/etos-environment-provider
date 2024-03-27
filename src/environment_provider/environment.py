@@ -18,12 +18,9 @@ import json
 import traceback
 from typing import Optional, Union
 
-from celery import Celery
 from etos_lib import ETOS
-from falcon import Request
 from jsontas.jsontas import JsonTas
 
-from environment_provider.environment_provider import get_environment
 from environment_provider.lib.database import ETCDPath
 from environment_provider.lib.registry import ProviderRegistry
 from execution_space_provider import ExecutionSpaceProvider
@@ -32,33 +29,6 @@ from iut_provider import IutProvider
 from iut_provider.iut import Iut
 from log_area_provider import LogAreaProvider
 from log_area_provider.log_area import LogArea
-
-
-def get_environment_id(request: Request) -> Optional[str]:
-    """Get the environment ID from request.
-
-    :param request: The falcon request object.
-    :return: The ID of the environment.
-    """
-    return request.get_param("id")
-
-
-def get_release_id(request: Request) -> Optional[str]:
-    """Get the task ID to release, from request.
-
-    :param request: The falcon request object.
-    :return: The ID of the environment to release.
-    """
-    return request.get_param("release")
-
-
-def get_single_release_id(request: Request) -> Optional[str]:
-    """Get the environment ID to release, from request.
-
-    :param request: The falcon request object.
-    :return: The ID of the environment to release.
-    """
-    return request.get_param("single_release")
 
 
 def checkin_provider(
@@ -148,33 +118,3 @@ def release_full_environment(etos: ETOS, jsontas: JsonTas, suite_id: str) -> tup
             traceback.format_exception(failure, value=failure, tb=failure.__traceback__)
         )
     return True, ""
-
-
-def check_environment_status(celery_worker: Celery, environment_id: str) -> dict:
-    """Check the status of the environment that is being requested.
-
-    :param celery_worker: The worker holding the task results.
-    :param environment_id: The environment ID to check status on.
-    :return: A dictionary of status and and result.
-    """
-    task_result = celery_worker.AsyncResult(environment_id)
-    result = task_result.result
-    status = task_result.status
-    if isinstance(result, Exception):
-        status = "FAILURE"
-        result = str(result)
-    elif result and result.get("error") is not None:
-        status = "FAILURE"
-    if result:
-        task_result.get()
-    return {"status": status, "result": result}
-
-
-def request_environment(suite_id: str, suite_runner_ids: list[str]) -> str:
-    """Request an environment for a test suite ID.
-
-    :param suite_id: Suite ID to request an environment for.
-    :param suite_runner_ids: Suite runner correlation IDs.
-    :return: The task ID for the request.
-    """
-    return get_environment.delay(suite_id, suite_runner_ids).id
