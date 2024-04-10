@@ -15,11 +15,13 @@
 # limitations under the License.
 """External Execution Space provider."""
 import logging
+import json
 import os
 import time
 from copy import deepcopy
 from json.decoder import JSONDecodeError
 
+import opentelemetry
 import requests
 from etos_lib import ETOS
 from etos_lib.lib.http import Http
@@ -114,6 +116,13 @@ class ExternalProvider:
         execution_spaces = [execution_space.as_dict for execution_space in execution_space]
 
         host = self.ruleset.get("stop", {}).get("host")
+        headers = {"X-ETOS-ID": self.identifier}
+        otel_span = opentelemetry.trace.get_current_span()
+        if otel_span is not None:
+            otel_span.set_attribute("request.host", host)
+            otel_span.set_attribute("request.headers", json.dumps(headers, indent=4))
+            otel_span.set_attribute("request.body", json.dumps(execution_spaces, indent=4))
+
         timeout = time.time() + end
         first_iteration = True
         while time.time() < timeout:
@@ -123,7 +132,7 @@ class ExternalProvider:
                 time.sleep(2)
             try:
                 response = requests.post(
-                    host, json=execution_spaces, headers={"X-ETOS-ID": self.identifier}
+                    host, json=execution_spaces, headers=headers
                 )
                 if response.status_code == requests.codes["no_content"]:
                     return
@@ -191,11 +200,18 @@ class ExternalProvider:
             "dataset": self.dataset.get("dataset"),
             "context": self.dataset.get("context"),
         }
+        host = self.ruleset.get("start", {}).get("host")
+        headers = {"X-ETOS-ID": self.identifier}
+        otel_span = opentelemetry.trace.get_current_span()
+        if otel_span is not None:
+            otel_span.set_attribute("request.host", host)
+            otel_span.set_attribute("request.headers", json.dumps(headers, indent=4))
+            otel_span.set_attribute("request.body", json.dumps(data, indent=4))
         try:
             response = self.http.post(
-                self.ruleset.get("start", {}).get("host"),
+                host,
                 json=data,
-                headers={"X-ETOS-ID": self.identifier},
+                headers=headers,
             )
             response.raise_for_status()
             return response.json().get("id")

@@ -30,6 +30,7 @@ from etos_lib.etos import ETOS
 from etos_lib.lib.events import EiffelEnvironmentDefinedEvent
 from etos_lib.logging.logger import FORMAT_CONFIG
 from jsontas.jsontas import JsonTas
+import opentelemetry
 
 from execution_space_provider.execution_space import ExecutionSpace
 from log_area_provider.log_area import LogArea
@@ -45,6 +46,7 @@ from .lib.log_area import LogArea
 from .lib.registry import ProviderRegistry
 from .lib.test_suite import TestSuite
 from .lib.uuid_generate import UuidGenerate
+from .lib.otel_tracing import get_current_context
 from .splitter.split import Splitter
 
 logging.getLogger("pika").setLevel(logging.WARNING)
@@ -78,6 +80,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         """
         FORMAT_CONFIG.identifier = suite_id
         self.logger.info("Initializing EnvironmentProvider task.")
+        self.tracer = opentelemetry.trace.get_tracer(__name__)
+        self.tracer_context = get_current_context()
 
         self.etos = ETOS("ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider")
 
@@ -414,14 +418,17 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         timeout = self.checkout_timeout()
         while time.time() < timeout:
             self.set_total_test_count_and_test_runners(test_runners)
-            # Check out and assign IUTs to test runners.
-            iuts = self.iut_provider.wait_for_and_checkout_iuts(
-                minimum_amount=1,
-                maximum_amount=self.dataset.get(
-                    "maximum_amount", self.etos.config.get("TOTAL_TEST_COUNT")
-                ),
-            )
-            self.splitter.assign_iuts(test_runners, iuts)
+
+            with self.tracer.start_as_current_span("request_iuts") as span:
+                # Check out and assign IUTs to test runners.
+                iuts = self.iut_provider.wait_for_and_checkout_iuts(
+                    minimum_amount=1,
+                    maximum_amount=self.dataset.get(
+                        "maximum_amount", self.etos.config.get("TOTAL_TEST_COUNT")
+                    ),
+                )
+                self.splitter.assign_iuts(test_runners, iuts)
+                span.set_attribute("iuts", str(iuts))
 
             for test_runner in test_runners.keys():
                 self.dataset.add("test_runner", test_runner)
@@ -434,9 +441,17 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 for iut, suite in test_runners[test_runner].get("iuts", {}).items():
                     self.dataset.add("iut", iut)
                     self.dataset.add("suite", suite)
-                    suite["executor"] = self.checkout_an_execution_space()
-                    self.dataset.add("executor", suite["executor"])
-                    suite["log_area"] = self.checkout_a_log_area()
+
+                    span_name = f"request_execution_space"
+                    with self.tracer.start_as_current_span(span_name) as span:
+                        span.set_attribute("test_runner", test_runner)
+                        suite["executor"] = self.checkout_an_execution_space()
+                        self.dataset.add("executor", suite["executor"])
+
+                    span_name = f"request_log_area"
+                    with self.tracer.start_as_current_span(span_name) as span:
+                        span.set_attribute("test_runner", test_runner)
+                        suite["log_area"] = self.checkout_a_log_area()
 
                 # Split the tests into sub suites
                 self.splitter.split(test_runners[test_runner])
