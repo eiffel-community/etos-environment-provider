@@ -440,14 +440,12 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     self.dataset.add("iut", iut)
                     self.dataset.add("suite", suite)
 
-                    span_name = f"request_execution_space"
-                    with self.tracer.start_as_current_span(span_name) as span:
+                    with self.tracer.start_as_current_span("request_execution_space") as span:
                         span.set_attribute("test_runner", test_runner)
                         suite["executor"] = self.checkout_an_execution_space()
                         self.dataset.add("executor", suite["executor"])
 
-                    span_name = f"request_log_area"
-                    with self.tracer.start_as_current_span(span_name) as span:
+                    with self.tracer.start_as_current_span("request_log_area") as span:
                         span.set_attribute("test_runner", test_runner)
                         suite["log_area"] = self.checkout_a_log_area()
 
