@@ -118,11 +118,11 @@ class ExternalProvider:
         host = self.ruleset.get("stop", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
         otel_span = opentelemetry.trace.get_current_span()
-        if otel_span is not None:
-            otel_span.set_attribute("request.host", host)
-            otel_span.set_attribute("request.headers", json.dumps(headers, indent=4))
-            otel_span.set_attribute("request.body", json.dumps(execution_spaces, indent=4))
-
+        otel_span.set_attribute("request.host", host)
+        otel_span.set_attribute("request.headers", json.dumps(headers, indent=4))
+        otel_span.set_attribute("request.body", json.dumps(execution_spaces, indent=4))
+        #opentelemetry.propagate.inject(headers) # inject current OpenTelemetry conext to HTTP request headers
+        self.logger.info("OpenTelemetry context headers: %s", headers)
         timeout = time.time() + end
         first_iteration = True
         while time.time() < timeout:
@@ -203,10 +203,11 @@ class ExternalProvider:
         host = self.ruleset.get("start", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
         otel_span = opentelemetry.trace.get_current_span()
-        if otel_span is not None:
-            otel_span.set_attribute("request.host", host)
-            otel_span.set_attribute("request.headers", json.dumps(headers, indent=4))
-            otel_span.set_attribute("request.body", json.dumps(data, indent=4))
+        otel_span.set_attribute("request.host", host)
+        otel_span.set_attribute("request.headers", json.dumps(headers, indent=4))
+        otel_span.set_attribute("request.body", json.dumps(data, indent=4))
+        #opentelemetry.propagate.inject(headers) # inject current OpenTelemetry conext to HTTP request headers
+        self.logger.info("OpenTelemetry context headers: %s", headers)
         try:
             response = self.http.post(
                 host,
@@ -239,11 +240,14 @@ class ExternalProvider:
                 first_iteration = False
             else:
                 time.sleep(2)
+            headers = {"X-ETOS-ID": self.identifier} 
+            #opentelemetry.propagate.inject(headers) # inject current OpenTelemetry conext to HTTP request headers
+            self.logger.info("OpenTelemetry context headers: %s", headers)
             try:
                 response = requests.get(
                     host,
                     params={"id": provider_id},
-                    headers={"X-ETOS-ID": self.identifier},
+                    headers=headers,
                 )
                 self.check_error(response)
                 response = response.json()

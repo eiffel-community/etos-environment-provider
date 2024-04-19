@@ -46,7 +46,6 @@ from .lib.log_area import LogArea
 from .lib.registry import ProviderRegistry
 from .lib.test_suite import TestSuite
 from .lib.uuid_generate import UuidGenerate
-from .lib.otel_tracing import get_current_context
 from .splitter.split import Splitter
 
 logging.getLogger("pika").setLevel(logging.WARNING)
@@ -81,7 +80,6 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         FORMAT_CONFIG.identifier = suite_id
         self.logger.info("Initializing EnvironmentProvider task.")
         self.tracer = opentelemetry.trace.get_tracer(__name__)
-        self.tracer_context = get_current_context()
 
         self.etos = ETOS("ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider")
 

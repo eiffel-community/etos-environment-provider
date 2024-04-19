@@ -112,10 +112,9 @@ class ExternalProvider:
         host = self.ruleset.get("stop", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
         otel_span = opentelemetry.trace.get_current_span()
-        if otel_span is not None:
-            otel_span.set_attribute("request.host", host)
-            otel_span.set_attribute("request.headers", json.dumps(headers, indent=4))
-            otel_span.set_attribute("request.body", json.dumps(iuts, indent=4))
+        otel_span.set_attribute("request.host", host)
+        otel_span.set_attribute("request.headers", json.dumps(headers, indent=4))
+        otel_span.set_attribute("request.body", json.dumps(iuts, indent=4))
 
         timeout = time.time() + end
         first_iteration = True
@@ -171,10 +170,9 @@ class ExternalProvider:
         host = self.ruleset.get("start", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
         otel_span = opentelemetry.trace.get_current_span()
-        if otel_span is not None:
-            otel_span.set_attribute("request.host", host)
-            otel_span.set_attribute("request.headers", json.dumps(headers, indent=4))
-            otel_span.set_attribute("request.body", json.dumps(data, indent=4))
+        otel_span.set_attribute("request.host", host)
+        otel_span.set_attribute("request.headers", json.dumps(headers, indent=4))
+        otel_span.set_attribute("request.body", json.dumps(data, indent=4))
         try:
             response = self.http.post(
                 host,
