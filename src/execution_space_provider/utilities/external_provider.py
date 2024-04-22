@@ -236,7 +236,7 @@ class ExternalProvider:
                 first_iteration = False
             else:
                 time.sleep(2)
-            headers = {"X-ETOS-ID": self.identifier} 
+            headers = {"X-ETOS-ID": self.identifier}
             self.logger.info("OpenTelemetry context headers: %s", headers)
             try:
                 response = requests.get(
