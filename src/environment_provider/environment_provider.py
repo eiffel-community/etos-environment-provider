@@ -413,7 +413,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             self.environment_provider_config,
         )
         finished = []
-        while time.time() < self.checkout_timeout():
+        timeout = self.checkout_timeout()
+        while time.time() < timeout:
             self.set_total_test_count_and_test_runners(test_runners)
 
             with self.tracer.start_as_current_span("request_iuts") as span:
@@ -456,8 +457,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     sub_suite = test_suite.add(
                         test_runner, iut, suite, test_runners[test_runner]["priority"]
                     )
-                    url = self.upload_sub_suite(sub_suite)
-                    self.send_environment_events(url, sub_suite)
+                    self.send_environment_events(self.upload_sub_suite(sub_suite), sub_suite)
 
                     self.logger.info(
                         "Environment for %r checked out and is ready for use",
