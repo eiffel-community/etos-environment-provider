@@ -124,9 +124,7 @@ class ExternalProvider:
             else:
                 time.sleep(2)
             try:
-                response = requests.post(
-                    host, json=log_areas, headers=headers
-                )
+                response = requests.post(host, json=log_areas, headers=headers)
                 if response.status_code == requests.codes["no_content"]:
                     return
                 response = response.json()

@@ -413,8 +413,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             self.environment_provider_config,
         )
         finished = []
-        timeout = self.checkout_timeout()
-        while time.time() < timeout:
+        while time.time() < self.checkout_timeout():
             self.set_total_test_count_and_test_runners(test_runners)
 
             with self.tracer.start_as_current_span("request_iuts") as span:

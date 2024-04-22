@@ -34,6 +34,7 @@ from log_area_provider.log_area import LogArea
 
 TRACER = trace.get_tracer(__name__)
 
+
 def checkin_provider(
     item: dict, provider: Union[IutProvider, ExecutionSpaceProvider, LogAreaProvider]
 ) -> tuple[bool, Optional[Exception]]:
@@ -79,13 +80,13 @@ def release_environment(
 
     failure = None
 
-    span_name="stop_iuts"
+    span_name = "stop_iuts"
     with TRACER.start_as_current_span(span_name):
         success, exception = checkin_provider(Iut(**iut), IutProvider(etos, jsontas, iut_ruleset))
         if not success:
             failure = exception
 
-    span_name="stop_log_area"
+    span_name = "stop_log_area"
     with TRACER.start_as_current_span(span_name):
         success, exception = checkin_provider(
             LogArea(**log_area), LogAreaProvider(etos, jsontas, log_area_ruleset)
@@ -93,7 +94,7 @@ def release_environment(
         if not success:
             failure = exception
 
-    span_name="stop_execution_space"
+    span_name = "stop_execution_space"
     with TRACER.start_as_current_span(span_name):
         success, exception = checkin_provider(
             ExecutionSpace(**executor),
