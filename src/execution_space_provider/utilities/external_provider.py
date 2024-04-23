@@ -118,10 +118,10 @@ class ExternalProvider:
         host = self.ruleset.get("stop", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
         otel_span = opentelemetry.trace.get_current_span()
-        otel_span.set_attribute("request.host", host)
-        otel_span.set_attribute("request.headers", json.dumps(headers, indent=4))
-        otel_span.set_attribute("request.body", json.dumps(execution_spaces, indent=4))
-        self.logger.info("OpenTelemetry context headers: %s", headers)
+        otel_span.set_attribute("http.request.host", host)
+        otel_span.set_attribute("http.request.body", json.dumps(execution_spaces, indent=4))
+        for header, value in headers.items():
+            otel_span.set_attribute(f"http.request.headers.{header.lower()}", value)
         timeout = time.time() + end
         first_iteration = True
         while time.time() < timeout:
@@ -200,10 +200,10 @@ class ExternalProvider:
         host = self.ruleset.get("start", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
         otel_span = opentelemetry.trace.get_current_span()
-        otel_span.set_attribute("request.host", host)
-        otel_span.set_attribute("request.headers", json.dumps(headers, indent=4))
-        otel_span.set_attribute("request.body", json.dumps(data, indent=4))
-        self.logger.info("OpenTelemetry context headers: %s", headers)
+        otel_span.set_attribute("http.request.host", host)
+        otel_span.set_attribute("http.request.body", json.dumps(data, indent=4))
+        for header, value in headers.items():
+            otel_span.set_attribute(f"http.request.headers.{header.lower()}", value)
         try:
             response = self.http.post(
                 host,
@@ -237,7 +237,6 @@ class ExternalProvider:
             else:
                 time.sleep(2)
             headers = {"X-ETOS-ID": self.identifier}
-            self.logger.info("OpenTelemetry context headers: %s", headers)
             try:
                 response = requests.get(
                     host,

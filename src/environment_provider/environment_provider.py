@@ -29,6 +29,7 @@ from typing import Any, Union
 from etos_lib.etos import ETOS
 from etos_lib.lib.events import EiffelEnvironmentDefinedEvent
 from etos_lib.logging.logger import FORMAT_CONFIG
+from etos_lib.opentelemetry.semconv import Attributes as SemConvAttributes
 from jsontas.jsontas import JsonTas
 import opentelemetry
 
@@ -426,7 +427,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     ),
                 )
                 self.splitter.assign_iuts(test_runners, iuts)
-                span.set_attribute("iuts", str(iuts))
+                span.set_attribute(SemConvAttributes.IUT_DESCRIPTION, str(iuts))
 
             for test_runner in test_runners.keys():
                 self.dataset.add("test_runner", test_runner)
@@ -441,12 +442,12 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     self.dataset.add("suite", suite)
 
                     with self.tracer.start_as_current_span("request_execution_space") as span:
-                        span.set_attribute("test_runner", test_runner)
+                        span.set_attribute(SemConvAttributes.TESTRUNNER_ID, test_runner)
                         suite["executor"] = self.checkout_an_execution_space()
                         self.dataset.add("executor", suite["executor"])
 
                     with self.tracer.start_as_current_span("request_log_area") as span:
-                        span.set_attribute("test_runner", test_runner)
+                        span.set_attribute(SemConvAttributes.TESTRUNNER_ID, test_runner)
                         suite["log_area"] = self.checkout_a_log_area()
 
                 # Split the tests into sub suites
