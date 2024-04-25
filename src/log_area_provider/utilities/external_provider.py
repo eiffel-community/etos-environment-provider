@@ -25,7 +25,7 @@ from etos_lib import ETOS
 from etos_lib.lib.http import Http
 from jsontas.jsontas import JsonTas
 from packageurl import PackageURL
-from requests.exceptions import HTTPError
+from requests.exceptions import HTTPError, ConnectionError as RequestsConnectionError
 from urllib3.util import Retry
 
 from ..exceptions import LogAreaCheckinFailed, LogAreaCheckoutFailed, LogAreaNotAvailable
@@ -126,6 +126,11 @@ class ExternalProvider:
                     raise LogAreaCheckinFailed(
                         f"Unable to check in {log_areas} ({response.get('error')})"
                     )
+            except RequestsConnectionError as error:
+                if "connection refused" in str(error).lower():
+                    self.logger.error("Error connecting to %r: %r", host, error)
+                    continue
+                raise
             except ConnectionError:
                 self.logger.error("Error connecting to %r", host)
                 continue
