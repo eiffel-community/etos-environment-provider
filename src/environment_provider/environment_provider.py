@@ -442,12 +442,12 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     self.dataset.add("suite", suite)
 
                     with self.tracer.start_as_current_span("request_execution_space") as span:
-                        span.set_attribute(SemConvAttributes.TESTRUNNER_ID, test_runner)
+                        span.set_attribute(SemConvAttributes.TEST_RUNNER_ID, test_runner)
                         suite["executor"] = self.checkout_an_execution_space()
                         self.dataset.add("executor", suite["executor"])
 
                     with self.tracer.start_as_current_span("request_log_area") as span:
-                        span.set_attribute(SemConvAttributes.TESTRUNNER_ID, test_runner)
+                        span.set_attribute(SemConvAttributes.TEST_RUNNER_ID, test_runner)
                         suite["log_area"] = self.checkout_a_log_area()
 
                 # Split the tests into sub suites
