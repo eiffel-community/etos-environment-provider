@@ -64,14 +64,11 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     log_area_provider = None
     execution_space_provider = None
 
-    # pylint:disable=unused-argument
-    def __init__(self, suite_id: str, suite_runner_ids: list[str], copy: bool = False) -> None:
+    def __init__(self, suite_id: str, suite_runner_ids: list[str]) -> None:
         """Initialize ETOS, dataset, provider registry and splitter.
 
         :param suite_id: Suite ID to get an environment for
         :param suite_runner_ids: IDs from the suite runner to correlate sub suites.
-        :param copy: Deprecated - Kept since the suite runner still uses the parameter.
-                     Remove when ESR is updated
         """
         FORMAT_CONFIG.identifier = suite_id
         self.logger.info("Initializing EnvironmentProvider.")
