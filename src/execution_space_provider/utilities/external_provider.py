@@ -22,6 +22,8 @@ from copy import deepcopy
 from json.decoder import JSONDecodeError
 
 import opentelemetry
+from opentelemetry.semconv.trace import SpanAttributes
+
 import requests
 from etos_lib import ETOS
 from etos_lib.lib.http import Http
@@ -119,9 +121,9 @@ class ExternalProvider:
         headers = {"X-ETOS-ID": self.identifier}
         span = opentelemetry.trace.get_current_span()
         span.set_attribute("http.request.body", json.dumps(execution_spaces, indent=4))
-        span.set_attribute("http.request.host", host)
-        span.set_attribute("http.request.method", "POST")
-        span.set_attribute("network.protocol.name", "http")
+        span.set_attribute(SpanAttributes.HTTP_HOST, host)
+        span.set_attribute(SpanAttributes.HTTP_REQUEST_METHOD, "POST")
+        span.set_attribute(SpanAttributes.NETWORK_PROTOCOL_NAME, "http")
         for header, value in headers.items():
             span.set_attribute(f"http.request.headers.{header.lower()}", value)
         timeout = time.time() + end
@@ -133,7 +135,7 @@ class ExternalProvider:
                 time.sleep(2)
             try:
                 response = requests.post(host, json=execution_spaces, headers=headers)
-                span.set_attribute("http.response.status_code", response.status_code)
+                span.set_attribute(SpanAttributes.HTTP_RESPONSE_STATUS_CODE, response.status_code)
                 if response.status_code == requests.codes["no_content"]:
                     return
                 response = response.json()
