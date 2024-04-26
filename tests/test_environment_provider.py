@@ -23,7 +23,7 @@ import unittest
 from etos_lib.lib.config import Config
 from etos_lib.lib.debug import Debug
 
-from environment_provider.environment_provider import get_environment
+from environment_provider.environment_provider import EnvironmentProvider
 from tests.library.fake_database import FakeDatabase
 from tests.library.fake_server import FakeServer
 from tests.library.graphql_handler import GraphQLHandler
@@ -160,7 +160,8 @@ class TestEnvironmentProvider(unittest.TestCase):
             os.environ["ETOS_API"] = server.host
 
             self.logger.info("STEP: Run the environment provider.")
-            result = get_environment(suite_id, suite_runner_ids)
+            environment_provider = EnvironmentProvider(suite_id, suite_runner_ids)
+            result = environment_provider.run()
             print(result)
         self.assertIsNone(result.get("error"))
 
@@ -208,7 +209,8 @@ class TestEnvironmentProvider(unittest.TestCase):
             os.environ["ETOS_API"] = server.host
 
             self.logger.info("STEP: Run the environment provider.")
-            result = get_environment(suite_id, suite_runner_ids)
+            environment_provider = EnvironmentProvider(suite_id, suite_runner_ids)
+            result = environment_provider.run()
             print(result)
         self.assertIsNone(result.get("error"))
 
@@ -259,7 +261,8 @@ class TestEnvironmentProvider(unittest.TestCase):
             os.environ["ETOS_API"] = server.host
 
             self.logger.info("STEP: Run the environment provider.")
-            result = get_environment(suite_id, suite_runner_ids)
+            environment_provider = EnvironmentProvider(suite_id, suite_runner_ids)
+            result = environment_provider.run()
         self.assertIsNone(result.get("error"))
 
         self.logger.info("STEP: Verify that two environments were sent.")
@@ -308,7 +311,8 @@ class TestEnvironmentProvider(unittest.TestCase):
             os.environ["ETOS_API"] = server.host
 
             self.logger.info("STEP: Run the environment provider.")
-            result = get_environment(suite_id, suite_runner_ids)
+            environment_provider = EnvironmentProvider(suite_id, suite_runner_ids)
+            result = environment_provider.run()
             print(result)
         self.assertIsNone(result.get("error"))
 

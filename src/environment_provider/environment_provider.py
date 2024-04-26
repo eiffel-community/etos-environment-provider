@@ -13,17 +13,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ETOS Environment Provider celery task module."""
+"""ETOS Environment Provider module."""
 import json
 import logging
 import os
 import time
 import traceback
 import uuid
-from copy import deepcopy
 from datetime import datetime
 from tempfile import NamedTemporaryFile
-from threading import Lock
 from typing import Any, Union
 
 from etos_lib.etos import ETOS
@@ -34,7 +32,6 @@ from jsontas.jsontas import JsonTas
 from execution_space_provider.execution_space import ExecutionSpace
 from log_area_provider.log_area import LogArea
 
-from .lib.celery import APP
 from .lib.config import Config
 from .lib.database import ETCDPath
 from .lib.encrypt import Encrypt
@@ -59,40 +56,32 @@ class EnvironmentProviderNotConfigured(Exception):
 
 
 class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
-    """Environment provider celery Task."""
+    """Environment provider."""
 
     logger = logging.getLogger("EnvironmentProvider")
     environment_provider_config = None
     iut_provider = None
     log_area_provider = None
     execution_space_provider = None
-    task_track_started = True  # Make celery task report 'STARTED' state
-    lock = Lock()
 
-    def __init__(self, suite_id: str, suite_runner_ids: list[str], copy: bool = True) -> None:
+    # pylint:disable=unused-argument
+    def __init__(self, suite_id: str, suite_runner_ids: list[str], copy: bool = False) -> None:
         """Initialize ETOS, dataset, provider registry and splitter.
 
         :param suite_id: Suite ID to get an environment for
         :param suite_runner_ids: IDs from the suite runner to correlate sub suites.
-        :param copy: Whether or not to copy the etos config. Set to False if not running celery.
+        :param copy: Deprecated - Kept since the suite runner still uses the parameter.
+                     Remove when ESR is updated
         """
         FORMAT_CONFIG.identifier = suite_id
-        self.logger.info("Initializing EnvironmentProvider task.")
+        self.logger.info("Initializing EnvironmentProvider.")
 
         self.etos = ETOS("ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider")
 
         self.suite_id = suite_id
         self.suite_runner_ids = suite_runner_ids
 
-        with self.lock:
-            # Since celery workers can share memory between them we need to make the configuration
-            # of ETOS library unique as it uses the memory sharing feature with the internal
-            # configuration dictionary.
-            # The impact of not doing this is that the environment provider would re-use
-            # another workers configuration instead of using its own.
-            if copy:
-                self.etos.config.config = deepcopy(self.etos.config.config)
-            self.reset()
+        self.reset()
         self.splitter = Splitter(self.etos, {})
 
     def reset(self) -> None:
@@ -566,15 +555,3 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             if self.etos.publisher is not None and not self.etos.debug.disable_sending_events:
                 self.etos.publisher.wait_for_unpublished_events()
                 self.etos.publisher.stop()
-
-
-@APP.task(name="EnvironmentProvider")
-def get_environment(suite_id: str, suite_runner_ids: list[str]) -> dict:
-    """Get an environment for ETOS test executions.
-
-    :param suite_id: Suite ID to get an environment for
-    :param suite_runner_ids: Suite runner correlation IDs.
-    :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
-    """
-    environment_provider = EnvironmentProvider(suite_id, suite_runner_ids)
-    return environment_provider.run()

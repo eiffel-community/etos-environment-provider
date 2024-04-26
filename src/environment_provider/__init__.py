@@ -18,8 +18,6 @@ import logging
 import os
 from importlib.metadata import PackageNotFoundError, version
 
-from etos_lib.logging.logger import setup_logging
-
 try:
     VERSION = version("environment_provider")
 except PackageNotFoundError:
@@ -27,9 +25,7 @@ except PackageNotFoundError:
 
 DEV = os.getenv("DEV", "false").lower() == "true"
 ENVIRONMENT = "development" if DEV else "production"
-# Disable extra logging, if the environment provider is imported instead of executed via celery
-if os.getenv("ENVIRONMENT_PROVIDER_DISABLE_LOGGING", "false") == "false":
-    setup_logging("ETOS Environment Provider Worker", VERSION, ENVIRONMENT)
+
 # JSONTas would print all passwords as they are encrypted,
 # which is not safe, so we disable propagation on the loggers.
 # Propagation needs to be set to 0 instead of disabling the
