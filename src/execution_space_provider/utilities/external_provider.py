@@ -117,11 +117,13 @@ class ExternalProvider:
 
         host = self.ruleset.get("stop", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
-        otel_span = opentelemetry.trace.get_current_span()
-        otel_span.set_attribute("http.request.host", host)
-        otel_span.set_attribute("http.request.body", json.dumps(execution_spaces, indent=4))
+        span = opentelemetry.trace.get_current_span()
+        span.set_attribute("http.request.body", json.dumps(execution_spaces, indent=4))
+        span.set_attribute("http.request.host", host)
+        span.set_attribute("http.request.method", "POST")
+        span.set_attribute("network.protocol.name", "http")
         for header, value in headers.items():
-            otel_span.set_attribute(f"http.request.headers.{header.lower()}", value)
+            span.set_attribute(f"http.request.headers.{header.lower()}", value)
         timeout = time.time() + end
         first_iteration = True
         while time.time() < timeout:
@@ -131,22 +133,30 @@ class ExternalProvider:
                 time.sleep(2)
             try:
                 response = requests.post(host, json=execution_spaces, headers=headers)
+                span.set_attribute("http.response.status_code", response.status_code)
                 if response.status_code == requests.codes["no_content"]:
                     return
                 response = response.json()
                 if response.get("error") is not None:
-                    raise ExecutionSpaceCheckinFailed(
+                    exc = ExecutionSpaceCheckinFailed(
                         f"Unable to check in {execution_spaces} " f"({response.get('error')})"
                     )
+                    span.record_exception(exc)
+                    raise exc
             except RequestsConnectionError as error:
                 if "connection refused" in str(error).lower():
                     self.logger.error("Error connecting to %r: %r", host, error)
                     continue
+                span.record_exception(exc)
+                raise exc
                 raise
             except ConnectionError:
                 self.logger.error("Error connecting to %r", host)
                 continue
-        raise TimeoutError(f"Unable to stop external provider {self.id!r}")
+        exc = TimeoutError(f"Unable to stop external provider {self.id!r}")
+        span.record_exception(exc)
+        raise exc
+
 
     def checkin_all(self) -> None:
         """Check in all execution spaces.
