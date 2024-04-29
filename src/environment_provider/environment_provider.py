@@ -424,7 +424,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 maximum_amount=self.dataset.get(
                     "maximum_amount",
                     os.getenv(
-                        "ETOS_MAX_PARALELL",
+                        "ETOS_MAX_PARALLEL",
                         self.etos.config.get("TOTAL_TEST_COUNT"),
                     ),
                 ),
