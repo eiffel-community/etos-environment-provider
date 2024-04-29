@@ -24,7 +24,6 @@ from json.decoder import JSONDecodeError
 import opentelemetry
 from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
-from opentelemetry.propagate import inject
 
 import requests
 from etos_lib import ETOS
@@ -100,6 +99,14 @@ class ExternalProvider:
         """
         return self.dataset.get("identity")
 
+    @staticmethod
+    def _record_exception(exc) -> None:
+        """Record the given exception to the current OpenTelemetry span."""
+        span = opentelemetry.trace.get_current_span()
+        span.set_attribute("error.type", exc.__name__)
+        span.record_exception(exc)
+        span.set_status(opentelemetry.trace.Status(opentelemetry.StatusCode.ERROR))
+
     def checkin(self, execution_space: ExecutionSpace) -> None:
         """Check in execution spaces.
 
@@ -125,8 +132,6 @@ class ExternalProvider:
         span = opentelemetry.trace.get_current_span()
         span.set_attribute("http.request.body", json.dumps(execution_spaces, indent=4))
         span.set_attribute(SpanAttributes.HTTP_HOST, host)
-        span.set_attribute(SpanAttributes.HTTP_REQUEST_METHOD, "POST")
-        span.set_attribute(SpanAttributes.NETWORK_PROTOCOL_NAME, "http")
         for header, value in headers.items():
             span.set_attribute(f"http.request.headers.{header.lower()}", value)
         timeout = time.time() + end
@@ -146,7 +151,7 @@ class ExternalProvider:
                     exc = ExecutionSpaceCheckinFailed(
                         f"Unable to check in {execution_spaces} " f"({response.get('error')})"
                     )
-                    span.record_exception(exc)
+                    self._record_exception(exc)
                     raise exc
             except RequestsConnectionError as error:
                 if "connection refused" in str(error).lower():
@@ -159,7 +164,7 @@ class ExternalProvider:
                 self.logger.error("Error connecting to %r", host)
                 continue
         exc = TimeoutError(f"Unable to stop external provider {self.id!r}")
-        span.record_exception(exc)
+        self._record_exception(exc)
         raise exc
 
 
@@ -215,11 +220,11 @@ class ExternalProvider:
         host = self.ruleset.get("start", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
         TraceContextTextMapPropagator().inject(headers)
-        otel_span = opentelemetry.trace.get_current_span()
-        otel_span.set_attribute("http.request.host", host)
-        otel_span.set_attribute("http.request.body", json.dumps(data, indent=4))
+        span = opentelemetry.trace.get_current_span()
+        span.set_attribute(SpanAttributes.HTTP_HOST, host)
+        span.set_attribute("http.request.body", json.dumps(data, indent=4))
         for header, value in headers.items():
-            otel_span.set_attribute(f"http.request.headers.{header.lower()}", value)
+            span.set_attribute(f"http.request.headers.{header.lower()}", value)
 
         try:
             response = self.http.post(
@@ -227,10 +232,13 @@ class ExternalProvider:
                 json=data,
                 headers=headers,
             )
+            span.set_attribute(SpanAttributes.HTTP_RESPONSE_STATUS_CODE, response.status_code)
             response.raise_for_status()
             return response.json().get("id")
         except (HTTPError, JSONDecodeError) as error:
-            raise Exception(f"Could not start external provider {self.id!r}") from error
+            exc = Exception(f"Could not start external provider {self.id!r}")
+            self._record_exception(exc)
+            raise exc from error
 
     def wait(self, provider_id: str) -> dict:
         """Wait for external execution space provider to finish its request.
@@ -245,11 +253,14 @@ class ExternalProvider:
 
         host = self.ruleset.get("status", {}).get("host")
         timeout = time.time() + self.etos.config.get("WAIT_FOR_EXECUTION_SPACE_TIMEOUT")
-
+        params = {"id": provider_id}
         response = None
         first_iteration = True
         headers = {"X-ETOS-ID": self.identifier}
         TraceContextTextMapPropagator().inject(headers)
+        span = opentelemetry.trace.get_current_span()
+        span.set_attribute("http.request.params", json.dumps(params, indent=4))
+        span.set_attribute(SpanAttributes.HTTP_HOST, host)
         while time.time() < timeout:
             if first_iteration:
                 first_iteration = False
@@ -258,7 +269,7 @@ class ExternalProvider:
             try:
                 response = requests.get(
                     host,
-                    params={"id": provider_id},
+                    params=params,
                     headers=headers,
                 )
                 self.check_error(response)
@@ -268,14 +279,18 @@ class ExternalProvider:
                 continue
 
             if response.get("status") == "FAILED":
-                raise ExecutionSpaceCheckoutFailed(response.get("description"))
+                exc = ExecutionSpaceCheckoutFailed(response.get("description"))
+                self._record_exception(exc)
+                raise exc
             if response.get("status") == "DONE":
                 break
         else:
-            raise TimeoutError(
+            exc = TimeoutError(
                 "Status request timed out after "
                 f"{self.etos.config.get('WAIT_FOR_EXECUTION_SPACE_TIMEOUT')}s"
             )
+            self._record_exception(exc)
+            raise exc
         return response
 
     def check_error(self, response: dict) -> None:
@@ -283,6 +298,7 @@ class ExternalProvider:
 
         :param response: The response from the external execution space provider.
         """
+        span = opentelemetry.trace.get_current_span()
         self.logger.debug("Checking response from external execution space provider")
         try:
             if response.json().get("error") is not None:
@@ -291,13 +307,18 @@ class ExternalProvider:
             self.logger.error("Could not parse response as JSON")
 
         if response.status_code == requests.codes["not_found"]:
-            raise ExecutionSpaceNotAvailable(
+            exc = ExecutionSpaceNotAvailable(
                 f"External provider {self.id!r} did not respond properly"
             )
+            self._record_exception(exc)
+            raise exc
         if response.status_code == requests.codes["bad_request"]:
-            raise RuntimeError(
+            exc = RuntimeError(
                 f"Execution space provider for {self.id!r} is not properly configured"
             )
+            self._record_exception(exc)
+            raise exc
+
 
         # This should work, no other errors found.
         # If this does not work, propagate JSONDecodeError up the stack.
@@ -326,12 +347,15 @@ class ExternalProvider:
         :param maximum_amount: Maximum amount of execution spaces to checkout.
         :return: List of checked out execution spaces.
         """
+        span = opentelemetry.trace.get_current_span()
         try:
             provider_id = self.start(minimum_amount, maximum_amount)
             response = self.wait(provider_id)
             execution_spaces = self.build_execution_spaces(response)
             if len(execution_spaces) < minimum_amount:
-                raise ExecutionSpaceNotAvailable(self.id)
+                exc = ExecutionSpaceNotAvailable(self.id)
+                self._record_exception(exc)
+                raise exc
             if len(execution_spaces) > maximum_amount:
                 self.logger.warning(
                     "Too many execution spaces from external execution space provider "
@@ -364,6 +388,7 @@ class ExternalProvider:
         :param maximum_amount: Maximum amount of execution spaces to checkout.
         :return: List of checked out execution spaces.
         """
+        span = opentelemetry.trace.get_current_span()
         error = None
         triggered = None
         try:
@@ -385,8 +410,9 @@ class ExternalProvider:
             )
             self.etos.events.send_activity_started(triggered)
             return self.request_and_wait_for_execution_spaces(minimum_amount, maximum_amount)
-        except Exception as exception:
-            error = exception
+        except Exception as exc:
+            self._record_exception(exc)
+            error = exc
             raise
         finally:
             if error is None:
