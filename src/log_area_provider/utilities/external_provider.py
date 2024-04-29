@@ -22,6 +22,7 @@ from copy import deepcopy
 from json.decoder import JSONDecodeError
 
 import opentelemetry
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 import requests
 from etos_lib import ETOS
 from etos_lib.lib.http import Http
@@ -111,6 +112,7 @@ class ExternalProvider:
 
         host = self.ruleset.get("stop", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
+        TraceContextTextMapPropagator().inject(headers)
         otel_span = opentelemetry.trace.get_current_span()
         otel_span.set_attribute("http.request.host", host)
         otel_span.set_attribute("http.request.body", json.dumps(log_areas, indent=4))
@@ -171,6 +173,7 @@ class ExternalProvider:
         }
         host = self.ruleset.get("start", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
+        TraceContextTextMapPropagator().inject(headers)
         otel_span = opentelemetry.trace.get_current_span()
         otel_span.set_attribute("http.request.host", host)
         otel_span.set_attribute("http.request.body", json.dumps(data, indent=4))
@@ -205,6 +208,8 @@ class ExternalProvider:
 
         response = None
         first_iteration = True
+        headers={"X-ETOS-ID": self.identifier}
+        TraceContextTextMapPropagator().inject(headers)
         while time.time() < timeout:
             if first_iteration:
                 first_iteration = False
@@ -214,7 +219,7 @@ class ExternalProvider:
                 response = requests.get(
                     host,
                     params={"id": provider_id},
-                    headers={"X-ETOS-ID": self.identifier},
+                    headers=headers,
                 )
                 self.check_error(response)
                 response = response.json()

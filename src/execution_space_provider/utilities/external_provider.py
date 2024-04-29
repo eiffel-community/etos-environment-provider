@@ -23,6 +23,8 @@ from json.decoder import JSONDecodeError
 
 import opentelemetry
 from opentelemetry.semconv.trace import SpanAttributes
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from opentelemetry.propagate import inject
 
 import requests
 from etos_lib import ETOS
@@ -119,6 +121,7 @@ class ExternalProvider:
 
         host = self.ruleset.get("stop", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
+        TraceContextTextMapPropagator().inject(headers)
         span = opentelemetry.trace.get_current_span()
         span.set_attribute("http.request.body", json.dumps(execution_spaces, indent=4))
         span.set_attribute(SpanAttributes.HTTP_HOST, host)
@@ -211,11 +214,13 @@ class ExternalProvider:
         }
         host = self.ruleset.get("start", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
+        TraceContextTextMapPropagator().inject(headers)
         otel_span = opentelemetry.trace.get_current_span()
         otel_span.set_attribute("http.request.host", host)
         otel_span.set_attribute("http.request.body", json.dumps(data, indent=4))
         for header, value in headers.items():
             otel_span.set_attribute(f"http.request.headers.{header.lower()}", value)
+
         try:
             response = self.http.post(
                 host,
@@ -243,12 +248,13 @@ class ExternalProvider:
 
         response = None
         first_iteration = True
+        headers = {"X-ETOS-ID": self.identifier}
+        TraceContextTextMapPropagator().inject(headers)
         while time.time() < timeout:
             if first_iteration:
                 first_iteration = False
             else:
                 time.sleep(2)
-            headers = {"X-ETOS-ID": self.identifier}
             try:
                 response = requests.get(
                     host,
