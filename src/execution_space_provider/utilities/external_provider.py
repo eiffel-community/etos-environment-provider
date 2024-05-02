@@ -318,7 +318,6 @@ class ExternalProvider:
             self._record_exception(exc)
             raise exc
 
-
         # This should work, no other errors found.
         # If this does not work, propagate JSONDecodeError up the stack.
         self.logger.debug("Status for response %r", response.json().get("status"))
