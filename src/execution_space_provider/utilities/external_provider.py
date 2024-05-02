@@ -103,9 +103,9 @@ class ExternalProvider:
     def _record_exception(exc) -> None:
         """Record the given exception to the current OpenTelemetry span."""
         span = opentelemetry.trace.get_current_span()
-        span.set_attribute("error.type", exc.__name__)
+        span.set_attribute("error.type", exc.__class__.__name__)
         span.record_exception(exc)
-        span.set_status(opentelemetry.trace.Status(opentelemetry.StatusCode.ERROR))
+        span.set_status(opentelemetry.trace.Status(opentelemetry.trace.StatusCode.ERROR))
 
     def checkin(self, execution_space: ExecutionSpace) -> None:
         """Check in execution spaces.
@@ -130,8 +130,8 @@ class ExternalProvider:
         headers = {"X-ETOS-ID": self.identifier}
         TraceContextTextMapPropagator().inject(headers)
         span = opentelemetry.trace.get_current_span()
-        span.set_attribute("http.request.body", json.dumps(execution_spaces, indent=4))
-        span.set_attribute(SpanAttributes.HTTP_HOST, host)
+        span.set_attribute("http.request.body", json.dumps(execution_spaces))
+        span.set_attribute(SpanAttributes.URL_FULL, host)
         for header, value in headers.items():
             span.set_attribute(f"http.request.headers.{header.lower()}", value)
         timeout = time.time() + end
@@ -222,7 +222,7 @@ class ExternalProvider:
         TraceContextTextMapPropagator().inject(headers)
         span = opentelemetry.trace.get_current_span()
         span.set_attribute(SpanAttributes.HTTP_HOST, host)
-        span.set_attribute("http.request.body", json.dumps(data, indent=4))
+        span.set_attribute("http.request.body", json.dumps(data))
         for header, value in headers.items():
             span.set_attribute(f"http.request.headers.{header.lower()}", value)
 
@@ -259,7 +259,7 @@ class ExternalProvider:
         headers = {"X-ETOS-ID": self.identifier}
         TraceContextTextMapPropagator().inject(headers)
         span = opentelemetry.trace.get_current_span()
-        span.set_attribute("http.request.params", json.dumps(params, indent=4))
+        span.set_attribute("http.request.params", json.dumps(params))
         span.set_attribute(SpanAttributes.HTTP_HOST, host)
         while time.time() < timeout:
             if first_iteration:
@@ -347,7 +347,6 @@ class ExternalProvider:
         :param maximum_amount: Maximum amount of execution spaces to checkout.
         :return: List of checked out execution spaces.
         """
-        span = opentelemetry.trace.get_current_span()
         try:
             provider_id = self.start(minimum_amount, maximum_amount)
             response = self.wait(provider_id)
@@ -388,7 +387,6 @@ class ExternalProvider:
         :param maximum_amount: Maximum amount of execution spaces to checkout.
         :return: List of checked out execution spaces.
         """
-        span = opentelemetry.trace.get_current_span()
         error = None
         triggered = None
         try:

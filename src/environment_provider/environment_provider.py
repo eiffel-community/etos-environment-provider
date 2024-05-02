@@ -32,6 +32,7 @@ from etos_lib.logging.logger import FORMAT_CONFIG
 from etos_lib.opentelemetry.semconv import Attributes as SemConvAttributes
 from jsontas.jsontas import JsonTas
 import opentelemetry
+from opentelemetry.trace import SpanKind
 
 from execution_space_provider.execution_space import ExecutionSpace
 from log_area_provider.log_area import LogArea
@@ -418,7 +419,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         while time.time() < timeout:
             self.set_total_test_count_and_test_runners(test_runners)
 
-            with self.tracer.start_as_current_span("request_iuts") as span:
+            with self.tracer.start_as_current_span("request_iuts", kind=SpanKind.CLIENT) as span:
                 # Check out and assign IUTs to test runners.
                 iuts = self.iut_provider.wait_for_and_checkout_iuts(
                     minimum_amount=1,
@@ -441,12 +442,12 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     self.dataset.add("iut", iut)
                     self.dataset.add("suite", suite)
 
-                    with self.tracer.start_as_current_span("request_execution_space") as span:
+                    with self.tracer.start_as_current_span("request_execution_space", kind=SpanKind.CLIENT) as span:
                         span.set_attribute(SemConvAttributes.TEST_RUNNER_ID, test_runner)
                         suite["executor"] = self.checkout_an_execution_space()
                         self.dataset.add("executor", suite["executor"])
 
-                    with self.tracer.start_as_current_span("request_log_area") as span:
+                    with self.tracer.start_as_current_span("request_log_area", kind=SpanKind.CLIENT) as span:
                         span.set_attribute(SemConvAttributes.TEST_RUNNER_ID, test_runner)
                         suite["log_area"] = self.checkout_a_log_area()
 

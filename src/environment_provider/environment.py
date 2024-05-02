@@ -81,7 +81,7 @@ def release_environment(
     failure = None
 
     span_name = "stop_iuts"
-    with TRACER.start_as_current_span(span_name) as span:
+    with TRACER.start_as_current_span(span_name, kind=trace.SpanKind.CLIENT) as span:
         success, exception = checkin_provider(Iut(**iut), IutProvider(etos, jsontas, iut_ruleset))
         if not success:
             span.record_exception(exception)
@@ -89,7 +89,7 @@ def release_environment(
             failure = exception
 
     span_name = "stop_log_area"
-    with TRACER.start_as_current_span(span_name) as span:
+    with TRACER.start_as_current_span(span_name, kind=trace.SpanKind.CLIENT) as span:
         success, exception = checkin_provider(
             LogArea(**log_area), LogAreaProvider(etos, jsontas, log_area_ruleset)
         )
@@ -99,7 +99,7 @@ def release_environment(
             failure = exception
 
     span_name = "stop_execution_space"
-    with TRACER.start_as_current_span(span_name):
+    with TRACER.start_as_current_span(span_name, kind=trace.SpanKind.CLIENT):
         success, exception = checkin_provider(
             ExecutionSpace(**executor),
             ExecutionSpaceProvider(etos, jsontas, executor_ruleset),
