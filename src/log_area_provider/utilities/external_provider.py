@@ -122,11 +122,11 @@ class ExternalProvider:
         host = self.ruleset.get("stop", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
         TraceContextTextMapPropagator().inject(headers)
-        otel_span = opentelemetry.trace.get_current_span()
-        otel_span.set_attribute(SpanAttributes.URL_FULL, host)
-        otel_span.set_attribute("http.request.body", json.dumps(log_areas))
+        span = opentelemetry.trace.get_current_span()
+        span.set_attribute(SpanAttributes.URL_FULL, host)
+        span.set_attribute("http.request.body", json.dumps(log_areas))
         for header, value in headers.items():
-            otel_span.set_attribute(f"http.request.headers.{header.lower()}", value)
+            span.set_attribute(f"http.request.headers.{header.lower()}", value)
         timeout = time.time() + end
         first_iteration = True
         while time.time() < timeout:
