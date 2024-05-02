@@ -223,7 +223,7 @@ class ExternalProvider:
 
         response = None
         first_iteration = True
-        headers={"X-ETOS-ID": self.identifier}
+        headers = {"X-ETOS-ID": self.identifier}
         TraceContextTextMapPropagator().inject(headers)
         while time.time() < timeout:
             if first_iteration:

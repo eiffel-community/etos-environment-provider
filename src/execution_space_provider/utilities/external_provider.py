@@ -167,7 +167,6 @@ class ExternalProvider:
         self._record_exception(exc)
         raise exc
 
-
     def checkin_all(self) -> None:
         """Check in all execution spaces.
 
