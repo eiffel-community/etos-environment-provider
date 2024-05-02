@@ -444,14 +444,14 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
 
                     with self.tracer.start_as_current_span(
                         "request_execution_space", kind=SpanKind.CLIENT
-                        ) as span:
+                    ) as span:
                         span.set_attribute(SemConvAttributes.TEST_RUNNER_ID, test_runner)
                         suite["executor"] = self.checkout_an_execution_space()
                         self.dataset.add("executor", suite["executor"])
 
                     with self.tracer.start_as_current_span(
                         "request_log_area", kind=SpanKind.CLIENT
-                        ) as span:
+                    ) as span:
                         span.set_attribute(SemConvAttributes.TEST_RUNNER_ID, test_runner)
                         suite["log_area"] = self.checkout_a_log_area()
 
