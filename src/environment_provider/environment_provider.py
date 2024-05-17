@@ -418,18 +418,21 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         timeout = self.checkout_timeout()
         while time.time() < timeout:
             self.set_total_test_count_and_test_runners(test_runners)
-            # Check out and assign IUTs to test runners.
-            iuts = self.iut_provider.wait_for_and_checkout_iuts(
-                minimum_amount=1,
-                maximum_amount=self.dataset.get(
-                    "maximum_amount",
-                    os.getenv(
-                        "ETOS_MAX_PARALLEL_IUTS",
-                        self.etos.config.get("TOTAL_TEST_COUNT"),
+
+            with self.tracer.start_as_current_span("request_iuts", kind=SpanKind.CLIENT) as span:
+                # Check out and assign IUTs to test runners.
+                iuts = self.iut_provider.wait_for_and_checkout_iuts(
+                    minimum_amount=1,
+                    maximum_amount=self.dataset.get(
+                        "maximum_amount",
+                        os.getenv(
+                            "ETOS_MAX_PARALLEL_IUTS",
+                            self.etos.config.get("TOTAL_TEST_COUNT"),
+                        ),
                     ),
-                ),
-            )
-            self.splitter.assign_iuts(test_runners, iuts)
+                )
+                self.splitter.assign_iuts(test_runners, iuts)
+                span.set_attribute(SemConvAttributes.IUT_DESCRIPTION, str(iuts))
 
             for test_runner in test_runners.keys():
                 self.dataset.add("test_runner", test_runner)
