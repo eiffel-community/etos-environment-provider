@@ -15,11 +15,15 @@
 # limitations under the License.
 """IUT provider for external providers."""
 import logging
+import json
 import os
 import time
 from copy import deepcopy
 from json.decoder import JSONDecodeError
 
+import opentelemetry
+from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+from opentelemetry.semconv.trace import SpanAttributes
 import requests
 from etos_lib import ETOS
 from etos_lib.lib.http import Http
@@ -88,6 +92,14 @@ class ExternalProvider:
         """
         return self.dataset.get("identity")
 
+    @staticmethod
+    def _record_exception(exc) -> None:
+        """Record the given exception to the current OpenTelemetry span."""
+        span = opentelemetry.trace.get_current_span()
+        span.set_attribute("error.type", exc.__class__.__name__)
+        span.record_exception(exc)
+        span.set_status(opentelemetry.trace.Status(opentelemetry.trace.StatusCode.ERROR))
+
     def checkin(self, iut: Iut) -> None:
         """Check in IUTs.
 
@@ -108,6 +120,13 @@ class ExternalProvider:
         iuts = [iut.as_dict for iut in iut]
 
         host = self.ruleset.get("stop", {}).get("host")
+        headers = {"X-ETOS-ID": self.identifier}
+        TraceContextTextMapPropagator().inject(headers)
+        span = opentelemetry.trace.get_current_span()
+        span.set_attribute(SpanAttributes.URL_FULL, host)
+        span.set_attribute("http.request.body", json.dumps(iuts))
+        for header, value in headers.items():
+            span.set_attribute(f"http.request.headers.{header.lower()}", value)
         timeout = time.time() + end
         first_iteration = True
         while time.time() < timeout:
@@ -116,21 +135,26 @@ class ExternalProvider:
             else:
                 time.sleep(2)
             try:
-                response = requests.post(host, json=iuts, headers={"X-ETOS-ID": self.identifier})
+                response = requests.post(host, json=iuts, headers=headers)
                 if response.status_code == requests.codes["no_content"]:
                     return
                 response = response.json()
                 if response.get("error") is not None:
-                    raise IutCheckinFailed(f"Unable to check in {iuts} ({response.get('error')})")
+                    exc = IutCheckinFailed(f"Unable to check in {iuts} ({response.get('error')})")
+                    self._record_exception(exc)
+                    raise exc
             except RequestsConnectionError as error:
                 if "connection refused" in str(error).lower():
                     self.logger.error("Error connecting to %r: %r", host, error)
                     continue
+                self._record_exception(error)
                 raise
             except ConnectionError:
                 self.logger.error("Error connecting to %r", host)
                 continue
-        raise TimeoutError(f"Unable to stop external provider {self.id!r}")
+        exc = TimeoutError(f"Unable to stop external provider {self.id!r}")
+        self._record_exception(exc)
+        raise exc
 
     def checkin_all(self) -> None:
         """Check in all IUTs.
@@ -159,15 +183,24 @@ class ExternalProvider:
             "dataset": self.dataset.get("dataset"),
             "context": self.dataset.get("context"),
         }
+        host = self.ruleset.get("start", {}).get("host")
+        headers = {"X-ETOS-ID": self.identifier}
+        TraceContextTextMapPropagator().inject(headers)
+        span = opentelemetry.trace.get_current_span()
+        span.set_attribute(SpanAttributes.URL_FULL, host)
+        span.set_attribute("http.request.body", json.dumps(data))
+        for header, value in headers.items():
+            span.set_attribute(f"http.request.headers.{header.lower()}", value)
         try:
             response = self.http.post(
-                self.ruleset.get("start", {}).get("host"),
+                host,
                 json=data,
-                headers={"X-ETOS-ID": self.identifier},
+                headers=headers,
             )
             response.raise_for_status()
             return response.json().get("id")
         except (HTTPError, JSONDecodeError) as error:
+            self._record_exception(error)
             raise Exception(f"Could not start external provider {self.id!r}") from error
 
     def wait(self, provider_id: str) -> dict:
@@ -185,13 +218,15 @@ class ExternalProvider:
         timeout = time.time() + self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
 
         response = None
+        headers = {"X-ETOS-ID": self.identifier}
+        TraceContextTextMapPropagator().inject(headers)
         while time.time() < timeout:
             time.sleep(2)
             try:
                 response = requests.get(
                     host,
                     params={"id": provider_id},
-                    headers={"X-ETOS-ID": self.identifier},
+                    headers=headers,
                 )
                 self.check_error(response)
                 response = response.json()
