@@ -36,7 +36,6 @@ from execution_space_provider.execution_space import ExecutionSpace
 from log_area_provider.log_area import LogArea
 
 from .lib.config import Config
-from .lib.database import ETCDPath
 from .lib.encrypt import Encrypt
 from .lib.graphql import request_main_suite
 from .lib.join import Join
