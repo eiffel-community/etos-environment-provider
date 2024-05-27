@@ -293,11 +293,6 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             {"name": sub_suite.get("name"), "uri": url},
         )
 
-        # TODO: These shall be removed when API version v1 is used by the ESR and API.
-        environment = ETCDPath("/environment")
-        environment.join(f"{event_id}/testrun-id").write(self.suite_id)
-        environment.join(f"{event_id}/suite-id").write(sub_suite["test_suite_started_id"])
-
         suite = self.registry.testrun.join(f"suite/{sub_suite['test_suite_started_id']}")
         suite.join(f"/subsuite/{event_id}/suite").write(json.dumps(sub_suite))
 
