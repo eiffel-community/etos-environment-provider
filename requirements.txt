@@ -15,4 +15,4 @@ gunicorn~=19.9
 jsontas~=1.3
 packageurl-python~=0.11
 etcd3gw~=2.3
-etos_lib==4.0.0
+etos_lib==4.3.0
