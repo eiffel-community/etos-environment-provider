@@ -404,7 +404,11 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 iuts = self.iut_provider.wait_for_and_checkout_iuts(
                     minimum_amount=1,
                     maximum_amount=self.dataset.get(
-                        "maximum_amount", self.etos.config.get("TOTAL_TEST_COUNT")
+                        "maximum_amount",
+                        os.getenv(
+                            "ETOS_MAX_PARALLEL_IUTS",
+                            self.etos.config.get("TOTAL_TEST_COUNT"),
+                        ),
                     ),
                 )
                 self.splitter.assign_iuts(test_runners, iuts)
