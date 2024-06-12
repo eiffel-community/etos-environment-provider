@@ -306,7 +306,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 json.dump(sub_suite, sub_suite_file)
             log_area = LogArea(self.etos, sub_suite)
             return log_area.upload(
-                sub_suite_file.name, f"{sub_suite['name']}.json", sub_suite["test_suite_started_id"]
+                sub_suite_file.name, f"{sub_suite['name']}.json", sub_suite["test_suite_started_id"], sub_suite["sub_suite_id"]
             )
         finally:
             os.remove(sub_suite_file.name)
@@ -425,6 +425,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 for iut, suite in test_runners[test_runner].get("iuts", {}).items():
                     self.dataset.add("iut", iut)
                     self.dataset.add("suite", suite)
+                    suite["sub_suite_id"] = str(uuid.uuid4())
 
                     with self.tracer.start_as_current_span(
                         "request_execution_space", kind=SpanKind.CLIENT

@@ -154,6 +154,7 @@ class TestSuite:
         sub_suite = {
             "name": f"{self.test_suite_name}_SubSuite_{len(self._suite['sub_suites'])}",
             "suite_id": self.environment_provider_config.tercc_id,
+            "sub_suite_id": suite.get("sub_suite_id"),
             "test_suite_started_id": self.suite_runner_id,
             "priority": priority,
             "recipes": suite.get("recipes", []),

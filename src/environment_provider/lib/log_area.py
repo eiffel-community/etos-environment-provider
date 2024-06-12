@@ -46,16 +46,17 @@ class LogArea:  # pylint:disable=too-few-public-methods
         self.suite_name = sub_suite.get("name").replace(" ", "-")
         self.log_area = sub_suite.get("log_area")
 
-    def upload(self, log: str, name: str, folder: str) -> str:
+    def upload(self, log: str, name: str, main_suite_id: str, sub_suite_id: str) -> str:
         """Upload log to a storage location.
 
         :param log: Path to the log to upload.
         :param name: Name of file to upload.
-        :param folder: Folder to upload to.
+        :param main_suite_id: First part of folder to upload to.
+        :param sub_suite_id: Second part of folder to upload to.
         :return: URI where log was uploaded to.
         """
         upload = deepcopy(self.log_area.get("upload"))
-        data = {"name": name, "folder": folder}
+        data = {"name": name, "main_suite_id": main_suite_id, "sub_suite_id": sub_suite_id}
 
         # ETOS Library, for some reason, uses the key 'verb' instead of 'method'
         # for HTTP method.
