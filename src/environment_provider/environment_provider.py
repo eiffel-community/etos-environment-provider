@@ -306,7 +306,10 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 json.dump(sub_suite, sub_suite_file)
             log_area = LogArea(self.etos, sub_suite)
             return log_area.upload(
-                sub_suite_file.name, f"{sub_suite['name']}.json", sub_suite["test_suite_started_id"], sub_suite["sub_suite_id"]
+                sub_suite_file.name,
+                f"{sub_suite['name']}.json",
+                sub_suite["test_suite_started_id"],
+                sub_suite["sub_suite_id"],
             )
         finally:
             os.remove(sub_suite_file.name)
