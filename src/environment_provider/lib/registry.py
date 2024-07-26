@@ -30,6 +30,9 @@ from log_area_provider import LogAreaProvider
 from .database import ETCDPath
 
 
+# TODO: Providers are not registered automatically when running ETOS cluster controller
+
+
 class ProviderRegistry:
     """Environment provider registry."""
 
@@ -86,44 +89,42 @@ class ProviderRegistry:
         jsonschema.validate(instance=provider, schema=schema)
         return provider
 
-    def get_log_area_provider_by_id(self, provider_id: str) -> Optional[dict]:
-        """Get log area provider by name from the ETOS Database.
+    def get_log_area_provider(self) -> Optional[dict]:
+        """Get log area provider for a testrun from the ETOS Database.
 
-        Must have been registered with the /register endpoint.
-
-        :param provider_id: ID of log area provider.
         :return: Provider JSON or None.
         """
-        self.logger.info("Getting log area provider %r", provider_id)
-        provider = self.providers.join(f"log-area/{provider_id}").read()
+        if self.testrun is None:
+            self.logger.error("Could not retrieve log area provider from database")
+            return None
+        provider = self.testrun.join("provider/log-area").read()
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
 
-    def get_iut_provider_by_id(self, provider_id: str) -> Optional[dict]:
-        """Get IUT provider by name from the ETOS Database.
+    # def get_iut_provider_by_id(self, provider_id: str) -> Optional[dict]:
+    def get_iut_provider(self) -> Optional[dict]:
+        """Get IUT provider for testrun from the ETOS Database.
 
-        Must have been registered with the /register endpoint.
-
-        :param provider_id: ID of IUT provider.
         :return: Provider JSON or None.
         """
-        self.logger.info("Getting iut provider %r", provider_id)
-        provider = self.providers.join(f"iut/{provider_id}").read()
+        if self.testrun is None:
+            self.logger.error("Could not retrieve IUT provider from database")
+            return None
+        provider = self.testrun.join("provider/iut").read()
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
 
-    def get_execution_space_provider_by_id(self, provider_id: str) -> Optional[dict]:
+    def get_execution_space_provider(self) -> Optional[dict]:
         """Get execution space provider by name from the ETOS Database.
 
-        Must have been registered with the /register endpoint.
-
-        :param provider_id: ID of execution space provider.
         :return: Provider JSON or None.
         """
-        self.logger.info("Getting execution space provider %r", provider_id)
-        provider = self.providers.join(f"execution-space/{provider_id}").read()
+        if self.testrun is None:
+            self.logger.error("Could not retrieve execution spce provider from database")
+            return None
+        provider = self.testrun.join("provider/execution-space").read()
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
