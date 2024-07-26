@@ -32,6 +32,7 @@ from etos_lib.kubernetes import Kubernetes, TestRun, Environment, Provider
 from etos_lib.kubernetes.schemas import Environment as EnvironmentSchema, EnvironmentSpec, Metadata
 from etos_lib.kubernetes.schemas import TestRun as TestRunSchema
 from etos_lib.kubernetes.schemas import Provider as ProviderSchema
+from etos_lib.kubernetes.schemas.common import OwnerReference
 from jsontas.jsontas import JsonTas
 import opentelemetry
 from opentelemetry.trace import SpanKind
@@ -342,13 +343,20 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             # TODO: Proper exception type
             raise Exception("Bad")
 
-        # TODO: Convert sub suite recipes to Test
-
         environment = EnvironmentSchema(
             metadata=Metadata(
                 name=environment_id,
                 namespace=testrun.metadata.namespace,
-                ownerReferences=testrun.metadata.ownerReferences or [],
+                ownerReferences=[
+                    OwnerReference(
+                        name=testrun.metadata.name,
+                        controller=False,
+                        blockOwnerDeletion=True,
+                        apiVersion=testrun.apiVersion,
+                        kind=testrun.kind,
+                        uid=testrun.metadata.uid,
+                    )
+                ],
             ),
             spec=EnvironmentSpec.from_subsuite(
                 sub_suite.copy()
