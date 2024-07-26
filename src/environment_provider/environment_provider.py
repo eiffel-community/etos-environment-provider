@@ -47,6 +47,7 @@ from .lib.join import Join
 from .lib.json_dumps import JsonDumps
 from .lib.log_area import LogArea
 from .lib.registry import ProviderRegistry
+from .lib.database import ETCDPath
 from .lib.test_suite import TestSuite
 from .lib.uuid_generate import UuidGenerate
 from .splitter.split import Splitter
@@ -336,12 +337,13 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         # In a valid sub suite all of these keys must exist
         # making this a safe assumption
         environment_id = sub_suite["executor"]["instructions"]["environment"]["ENVIRONMENT_ID"]
+        testrun_name = f"testrun-{self.suite_id}"
 
         testrun_client = TestRun(self.kubernetes)
-        testrun = testrun_client.get(f"testrun-{self.suite_id}")
+        testrun = testrun_client.get(testrun_name)
         if testrun is None:
-            # TODO: Proper exception type
-            raise Exception("Bad")
+            raise RuntimeError("Testrun with name %r was not found, cannot create environment",
+                               testrun_name)
 
         environment = EnvironmentSchema(
             metadata=Metadata(
@@ -364,8 +366,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         )
         environment_client = Environment(self.kubernetes)
         if not environment_client.create(environment):
-            # TODO:
-            raise Exception("Failed")
+            raise RuntimeError("Failed to create the environment for an etos testrun")
         return f"{os.getenv('ETOS_API')}/v1alpha/testrun/{environment_id}"
 
     def checkout_an_execution_space(self) -> ExecutionSpace:
@@ -607,23 +608,49 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     self.etos.events.send_activity_finished(triggered, outcome)
         return {"suites": suites, "error": None}
 
+    def _configure_provider(self, provider_db: ETCDPath, provider_spec: dict, name: str):
+        """Configure a single provider for a testrun."""
+        provider_model = ProviderSchema.model_validate(provider_spec)
+        if provider_model.spec.jsontas:
+            ruleset = json.dumps({name: provider_model.to_jsontas()})
+        else:
+            ruleset = json.dumps({name: provider_model.to_external()})
+        provider_db.join(name).write(ruleset)
+
+    def _configure_iut(self, provider_spec: dict):
+        """Configure iut provider for a testrun."""
+        db = self.registry.testrun.join("provider/iut")  # type: ignore
+        self._configure_provider(db, provider_spec, "iut")
+
+    def _configure_log_area(self, provider_spec: dict):
+        """Configure log area provider for a testrun."""
+        db = self.registry.testrun.join("provider/log-area")  # type: ignore
+        self._configure_provider(db, provider_spec, "log")
+
+    def _configure_execution_space(self, provider_spec: dict):
+        """Configure execution space provider for a testrun."""
+        db = self.registry.testrun.join("provider/execution-space")  # type: ignore
+        self._configure_provider(db, provider_spec, "execution_space")
+
+    def _configure_dataset(self, datasets: list[dict]):
+        """Configure dataset for a testrun."""
+        db = self.registry.testrun.join("provider/dataset")  # type: ignore
+        db.write(json.dumps(datasets))
+
     def configure_environment_provider(self, suite_id: str):
         """Configure the environment provider if run as a part of the ETOS kubernetes controller."""
         provider_client = Provider(self.kubernetes)
         testrun_client = TestRun(self.kubernetes)
         testrun = TestRunSchema.model_validate(testrun_client.get(f"testrun-{suite_id}").to_dict())  # type: ignore
 
-        # TODO: Cleanup
-        iut_provider = ProviderSchema.model_validate(provider_client.get(testrun.spec.providers.iut).to_dict())
-        execution_space_provider = ProviderSchema.model_validate(provider_client.get(testrun.spec.providers.executionSpace).to_dict())
-        log_area_provider = ProviderSchema.model_validate(provider_client.get(testrun.spec.providers.logArea).to_dict())
-
-        provider_db = self.registry.testrun.join("provider")  # type: ignore
-        provider_db.join("iut").write(json.dumps({"iut": iut_provider.to_jsontas() if iut_provider.spec.jsontas else iut_provider.to_external()}))
-        provider_db.join("execution-space").write(json.dumps({"execution_space": execution_space_provider.to_jsontas() if execution_space_provider.spec.jsontas else execution_space_provider.to_external()}))
-        provider_db.join("log-area").write(json.dumps({"log": log_area_provider.to_jsontas() if log_area_provider.spec.jsontas else log_area_provider.to_external()}))
-        # TODO: Fix
-        provider_db.join("dataset").write('{"hello": "world"}')
+        iut = provider_client.get(testrun.spec.providers.iut).to_dict()  # type: ignore
+        self._configure_iut(iut)  # type: ignore
+        log_area = provider_client.get(testrun.spec.providers.logArea).to_dict()  # type: ignore
+        self._configure_log_area(log_area)  # type: ignore
+        execution_space = provider_client.get(testrun.spec.providers.executionSpace).to_dict()  # type: ignore
+        self._configure_execution_space(execution_space)  # type: ignore
+        datasets = [suite.dataset for suite in testrun.spec.suites]
+        self._configure_dataset(datasets)
 
     def run(self) -> dict:
         """Run the environment provider task.
