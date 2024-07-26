@@ -28,6 +28,10 @@ from etos_lib.etos import ETOS
 from etos_lib.lib.events import EiffelEnvironmentDefinedEvent
 from etos_lib.logging.logger import FORMAT_CONFIG
 from etos_lib.opentelemetry.semconv import Attributes as SemConvAttributes
+from etos_lib.kubernetes import Kubernetes, TestRun, Environment, Provider
+from etos_lib.kubernetes.schemas import Environment as EnvironmentSchema, EnvironmentSpec, Metadata
+from etos_lib.kubernetes.schemas import TestRun as TestRunSchema
+from etos_lib.kubernetes.schemas import Provider as ProviderSchema
 from jsontas.jsontas import JsonTas
 import opentelemetry
 from opentelemetry.trace import SpanKind
@@ -35,10 +39,6 @@ from opentelemetry.trace import SpanKind
 from execution_space_provider.execution_space import ExecutionSpace
 from log_area_provider.log_area import LogArea
 
-from .lib.kubernetes import Kubernetes, TestRun, Environment, Provider
-from .lib.kubernetes.schemas import Environment as EnvironmentSchema, EnvironmentSpec, Metadata
-from .lib.kubernetes.schemas import TestRun as TestRunSchema
-from .lib.kubernetes.schemas import Provider as ProviderSchema
 from .lib.config import Config
 from .lib.encrypt import Encrypt
 from .lib.graphql import request_main_suite
@@ -601,8 +601,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
 
     def configure_environment_provider(self, suite_id: str):
         """Configure the environment provider if run as a part of the ETOS kubernetes controller."""
-        provider_client = Provider(environmentprovider.kubernetes)
-        testrun_client = TestRun(environmentprovider.kubernetes)
+        provider_client = Provider(self.kubernetes)
+        testrun_client = TestRun(self.kubernetes)
         testrun = TestRunSchema.model_validate(testrun_client.get(f"testrun-{suite_id}").to_dict())  # type: ignore
 
         # TODO: Cleanup
@@ -610,7 +610,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         execution_space_provider = ProviderSchema.model_validate(provider_client.get(testrun.spec.providers.executionSpace).to_dict())
         log_area_provider = ProviderSchema.model_validate(provider_client.get(testrun.spec.providers.logArea).to_dict())
 
-        provider_db = environmentprovider.registry.testrun.join("provider")  # type: ignore
+        provider_db = self.registry.testrun.join("provider")  # type: ignore
         provider_db.join("iut").write(json.dumps({"iut": iut_provider.to_jsontas() if iut_provider.spec.jsontas else iut_provider.to_external()}))
         provider_db.join("execution-space").write(json.dumps({"execution_space": execution_space_provider.to_jsontas() if execution_space_provider.spec.jsontas else execution_space_provider.to_external()}))
         provider_db.join("log-area").write(json.dumps({"log": log_area_provider.to_jsontas() if log_area_provider.spec.jsontas else log_area_provider.to_external()}))
