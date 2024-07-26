@@ -610,12 +610,13 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
 
     def _configure_provider(self, provider_db: ETCDPath, provider_spec: dict, name: str):
         """Configure a single provider for a testrun."""
+        self.logger.info("Saving provider with name %r in %r", name, provider_db)
         provider_model = ProviderSchema.model_validate(provider_spec)
         if provider_model.spec.jsontas:
             ruleset = json.dumps({name: provider_model.to_jsontas()})
         else:
             ruleset = json.dumps({name: provider_model.to_external()})
-        provider_db.join(name).write(ruleset)
+        provider_db.write(ruleset)
 
     def _configure_iut(self, provider_spec: dict):
         """Configure iut provider for a testrun."""
@@ -639,6 +640,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
 
     def configure_environment_provider(self, suite_id: str):
         """Configure the environment provider if run as a part of the ETOS kubernetes controller."""
+        self.logger.info("Running in an ETOS cluster - Configuring testrun")
         provider_client = Provider(self.kubernetes)
         testrun_client = TestRun(self.kubernetes)
         testrun = TestRunSchema.model_validate(testrun_client.get(f"testrun-{suite_id}").to_dict())  # type: ignore

@@ -30,9 +30,6 @@ from log_area_provider import LogAreaProvider
 from .database import ETCDPath
 
 
-# TODO: Providers are not registered automatically when running ETOS cluster controller
-
-
 class ProviderRegistry:
     """Environment provider registry."""
 
@@ -102,7 +99,6 @@ class ProviderRegistry:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
 
-    # def get_iut_provider_by_id(self, provider_id: str) -> Optional[dict]:
     def get_iut_provider(self) -> Optional[dict]:
         """Get IUT provider for testrun from the ETOS Database.
 
