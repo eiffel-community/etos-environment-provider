@@ -67,16 +67,12 @@ def release_environment(
     """
     etos.config.set("SUITE_ID", sub_suite.get("suite_id"))
     iut = sub_suite.get("iut")
-    iut_ruleset = provider_registry.get_iut_provider_by_id(iut.get("provider_id")).get("iut")
+    iut_ruleset = provider_registry.get_iut_provider().get("iut")
     executor = sub_suite.get("executor")
-    executor_ruleset = provider_registry.get_execution_space_provider_by_id(
-        executor.get("provider_id")
-    ).get("execution_space")
+    executor_ruleset = provider_registry.get_execution_space_provider().get("execution_space")
 
     log_area = sub_suite.get("log_area")
-    log_area_ruleset = provider_registry.get_log_area_provider_by_id(
-        log_area.get("provider_id")
-    ).get("log")
+    log_area_ruleset = provider_registry.get_log_area_provider().get("log")
 
     failure = None
 

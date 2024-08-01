@@ -28,6 +28,11 @@ from etos_lib.etos import ETOS
 from etos_lib.lib.events import EiffelEnvironmentDefinedEvent
 from etos_lib.logging.logger import FORMAT_CONFIG
 from etos_lib.opentelemetry.semconv import Attributes as SemConvAttributes
+from etos_lib.kubernetes import Kubernetes, TestRun, Environment, Provider
+from etos_lib.kubernetes.schemas import Environment as EnvironmentSchema, EnvironmentSpec, Metadata
+from etos_lib.kubernetes.schemas import TestRun as TestRunSchema
+from etos_lib.kubernetes.schemas import Provider as ProviderSchema
+from etos_lib.kubernetes.schemas.common import OwnerReference
 from jsontas.jsontas import JsonTas
 import opentelemetry
 from opentelemetry.trace import SpanKind
@@ -42,6 +47,7 @@ from .lib.join import Join
 from .lib.json_dumps import JsonDumps
 from .lib.log_area import LogArea
 from .lib.registry import ProviderRegistry
+from .lib.database import ETCDPath
 from .lib.test_suite import TestSuite
 from .lib.uuid_generate import UuidGenerate
 from .splitter.split import Splitter
@@ -65,6 +71,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     iut_provider = None
     log_area_provider = None
     execution_space_provider = None
+    testrun = None
 
     def __init__(self, suite_id: str, suite_runner_ids: list[str]) -> None:
         """Initialize ETOS, dataset, provider registry and splitter.
@@ -75,14 +82,22 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         FORMAT_CONFIG.identifier = suite_id
         self.logger.info("Initializing EnvironmentProvider.")
         self.tracer = opentelemetry.trace.get_tracer(__name__)
+        self.kubernetes = Kubernetes()
 
-        self.etos = ETOS("ETOS Environment Provider", os.getenv("HOSTNAME"), "Environment Provider")
+        self.etos = ETOS("ETOS Environment Provider", os.getenv("HOSTNAME", "Unknown"), "Environment Provider")
 
         self.suite_id = suite_id
         self.suite_runner_ids = suite_runner_ids
 
         self.reset()
         self.splitter = Splitter(self.etos, {})
+
+    @property
+    def etos_controller(self) -> bool:
+        """Whether or not the environment provider is running as a part of the ETOS controller."""
+        testrun = TestRun(self.kubernetes)
+        testrun_name = os.getenv("TESTRUN")
+        return testrun_name is not None and testrun.exists(testrun_name)
 
     def reset(self) -> None:
         """Create a new dataset and provider registry."""
@@ -314,6 +329,48 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         finally:
             os.remove(sub_suite_file.name)
 
+    def create_environment_resource(self, sub_suite: dict) -> str:
+        """Create an environment resource in Kubernetes.
+
+        :param sub_suite: Sub suite to add to Environment resource.
+        :return: URI to ETOS API for ETR to fetch resource.
+        """
+        # In a valid sub suite all of these keys must exist
+        # making this a safe assumption
+        environment_id = sub_suite["executor"]["instructions"]["environment"]["ENVIRONMENT_ID"]
+        testrun_name = os.getenv("TESTRUN")
+        assert testrun_name is not None, "Environment variable TESTRUN must be set!"
+
+        testrun_client = TestRun(self.kubernetes)
+        testrun = testrun_client.get(testrun_name)
+        if testrun is None:
+            raise RuntimeError("Testrun with name %r was not found, cannot create environment",
+                               testrun_name)
+
+        environment = EnvironmentSchema(
+            metadata=Metadata(
+                name=environment_id,
+                namespace=testrun.metadata.namespace,
+                ownerReferences=[
+                    OwnerReference(
+                        name=testrun.metadata.name,
+                        controller=False,
+                        blockOwnerDeletion=True,
+                        apiVersion=testrun.apiVersion,
+                        kind=testrun.kind,
+                        uid=testrun.metadata.uid,
+                    )
+                ],
+            ),
+            spec=EnvironmentSpec.from_subsuite(
+                sub_suite.copy()
+            )
+        )
+        environment_client = Environment(self.kubernetes)
+        if not environment_client.create(environment):
+            raise RuntimeError("Failed to create the environment for an etos testrun")
+        return f"{os.getenv('ETOS_API')}/v1alpha/testrun/{environment_id}"
+
     def checkout_an_execution_space(self) -> ExecutionSpace:
         """Check out a single execution space.
 
@@ -451,7 +508,10 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     sub_suite = test_suite.add(
                         test_runner, iut, suite, test_runners[test_runner]["priority"]
                     )
-                    self.send_environment_events(self.upload_sub_suite(sub_suite), sub_suite)
+                    if self.etos_controller:
+                        self.send_environment_events(self.create_environment_resource(sub_suite), sub_suite)
+                    else:
+                        self.send_environment_events(self.upload_sub_suite(sub_suite), sub_suite)
 
                     self.logger.info(
                         "Environment for %r checked out and is ready for use",
@@ -550,6 +610,54 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     self.etos.events.send_activity_finished(triggered, outcome)
         return {"suites": suites, "error": None}
 
+    def _configure_provider(self, provider_db: ETCDPath, provider_spec: dict, name: str):
+        """Configure a single provider for a testrun."""
+        self.logger.info("Saving provider with name %r in %r", name, provider_db)
+        provider_model = ProviderSchema.model_validate(provider_spec)
+        if provider_model.spec.jsontas:
+            ruleset = json.dumps({name: provider_model.to_jsontas()})
+        else:
+            ruleset = json.dumps({name: provider_model.to_external()})
+        provider_db.write(ruleset)
+
+    def _configure_iut(self, provider_spec: dict):
+        """Configure iut provider for a testrun."""
+        db = self.registry.testrun.join("provider/iut")  # type: ignore
+        self._configure_provider(db, provider_spec, "iut")
+
+    def _configure_log_area(self, provider_spec: dict):
+        """Configure log area provider for a testrun."""
+        db = self.registry.testrun.join("provider/log-area")  # type: ignore
+        self._configure_provider(db, provider_spec, "log")
+
+    def _configure_execution_space(self, provider_spec: dict):
+        """Configure execution space provider for a testrun."""
+        db = self.registry.testrun.join("provider/execution-space")  # type: ignore
+        self._configure_provider(db, provider_spec, "execution_space")
+
+    def _configure_dataset(self, datasets: list[dict]):
+        """Configure dataset for a testrun."""
+        db = self.registry.testrun.join("provider/dataset")  # type: ignore
+        db.write(json.dumps(datasets))
+
+    def configure_environment_provider(self):
+        """Configure the environment provider if run as a part of the ETOS kubernetes controller."""
+        self.logger.info("Running in an ETOS cluster - Configuring testrun")
+        provider_client = Provider(self.kubernetes)
+        testrun_client = TestRun(self.kubernetes)
+        testrun_name = os.getenv("TESTRUN")
+        assert testrun_name is not None, "Environment variable TESTRUN must be set!"
+        testrun = TestRunSchema.model_validate(testrun_client.get(testrun_name).to_dict())  # type: ignore
+
+        iut = provider_client.get(testrun.spec.providers.iut).to_dict()  # type: ignore
+        self._configure_iut(iut)  # type: ignore
+        log_area = provider_client.get(testrun.spec.providers.logArea).to_dict()  # type: ignore
+        self._configure_log_area(log_area)  # type: ignore
+        execution_space = provider_client.get(testrun.spec.providers.executionSpace).to_dict()  # type: ignore
+        self._configure_execution_space(execution_space)  # type: ignore
+        datasets = [suite.dataset for suite in testrun.spec.suites]
+        self._configure_dataset(datasets)
+
     def run(self) -> dict:
         """Run the environment provider task.
 
@@ -559,12 +667,14 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         :rtype: dict
         """
         try:
+            if self.etos_controller:
+                self.configure_environment_provider()
             self.configure(self.suite_id)
             return self._run()
         except Exception as exception:  # pylint:disable=broad-except
             self.cleanup()
             traceback.print_exc()
-            self.logger.error("Failed creating environment for test. %r", extra={"user_log": True})
+            self.logger.error("Failed creating environment for test. %r", exception, extra={"user_log": True})
             return {"error": str(exception), "details": traceback.format_exc()}
         finally:
             if self.etos.publisher is not None and not self.etos.debug.disable_sending_events:
