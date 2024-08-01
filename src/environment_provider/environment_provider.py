@@ -96,7 +96,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     def etos_controller(self) -> bool:
         """Whether or not the environment provider is running as a part of the ETOS controller."""
         testrun = TestRun(self.kubernetes)
-        return testrun.exists(f"testrun-{self.suite_id}")
+        testrun_name = os.getenv("TESTRUN")
+        return testrun_name is not None and testrun.exists(testrun_name)
 
     def reset(self) -> None:
         """Create a new dataset and provider registry."""
@@ -337,7 +338,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         # In a valid sub suite all of these keys must exist
         # making this a safe assumption
         environment_id = sub_suite["executor"]["instructions"]["environment"]["ENVIRONMENT_ID"]
-        testrun_name = f"testrun-{self.suite_id}"
+        testrun_name = os.getenv("TESTRUN")
+        assert testrun_name is not None, "Environment variable TESTRUN must be set!"
 
         testrun_client = TestRun(self.kubernetes)
         testrun = testrun_client.get(testrun_name)
@@ -638,12 +640,14 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         db = self.registry.testrun.join("provider/dataset")  # type: ignore
         db.write(json.dumps(datasets))
 
-    def configure_environment_provider(self, suite_id: str):
+    def configure_environment_provider(self):
         """Configure the environment provider if run as a part of the ETOS kubernetes controller."""
         self.logger.info("Running in an ETOS cluster - Configuring testrun")
         provider_client = Provider(self.kubernetes)
         testrun_client = TestRun(self.kubernetes)
-        testrun = TestRunSchema.model_validate(testrun_client.get(f"testrun-{suite_id}").to_dict())  # type: ignore
+        testrun_name = os.getenv("TESTRUN")
+        assert testrun_name is not None, "Environment variable TESTRUN must be set!"
+        testrun = TestRunSchema.model_validate(testrun_client.get(testrun_name).to_dict())  # type: ignore
 
         iut = provider_client.get(testrun.spec.providers.iut).to_dict()  # type: ignore
         self._configure_iut(iut)  # type: ignore
@@ -664,7 +668,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         """
         try:
             if self.etos_controller:
-                self.configure_environment_provider(self.suite_id)
+                self.configure_environment_provider()
             self.configure(self.suite_id)
             return self._run()
         except Exception as exception:  # pylint:disable=broad-except
