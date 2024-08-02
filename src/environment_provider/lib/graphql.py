@@ -78,6 +78,35 @@ def request_tercc(etos: ETOS, suite_id: str) -> Optional[dict]:
     return None
 
 
+def request_artifact_created(etos: ETOS, artifact_id: str) -> Optional[dict]:
+    """Request an artifact created event from graphql.
+
+    :param etos: ETOS library instance.
+    :param artifact_id: ID of artifact to request.
+    :return: Response from graphql or None
+    """
+    query = """
+{
+  artifactCreated(search: "{'meta.id': '%s'}") {
+    edges {
+      node {
+        data {
+          identity
+        }
+        meta {
+          id
+        }
+      }
+    }
+  }
+}
+    """
+    for response in request(etos, query % artifact_id):
+        if response:
+            return response
+    return None
+
+
 def request_activity_triggered(etos: ETOS, suite_id: str) -> Optional[dict]:
     """Request an activiy triggered event from graphql.
 

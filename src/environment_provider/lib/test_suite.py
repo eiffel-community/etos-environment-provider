@@ -153,7 +153,7 @@ class TestSuite:
         """
         sub_suite = {
             "name": f"{self.test_suite_name}_SubSuite_{len(self._suite['sub_suites'])}",
-            "suite_id": self.environment_provider_config.tercc_id,
+            "suite_id": self.environment_provider_config.testrun.spec.id,
             "sub_suite_id": suite.get("sub_suite_id"),
             "test_suite_started_id": self.suite_runner_id,
             "priority": priority,
@@ -167,7 +167,3 @@ class TestSuite:
         }
         self._suite["sub_suites"].append(sub_suite)
         return sub_suite
-
-    def to_json(self) -> dict:
-        """Return test suite as a JSON dictionary."""
-        return self._suite
