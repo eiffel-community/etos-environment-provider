@@ -15,7 +15,9 @@
 # limitations under the License.
 """Backend for the environment requests."""
 import json
+import sys
 import traceback
+import logging
 import re
 from typing import Optional, Union
 
@@ -25,6 +27,9 @@ from opentelemetry import trace
 
 from environment_provider.lib.database import ETCDPath
 from environment_provider.lib.registry import ProviderRegistry
+from etos_lib.kubernetes.schemas import Environment as EnvironmentSchema
+from etos_lib.kubernetes.schemas import Provider as ProviderSchema
+from etos_lib.kubernetes import Kubernetes, Environment, Provider
 from execution_space_provider import ExecutionSpaceProvider
 from execution_space_provider.execution_space import ExecutionSpace
 from iut_provider import IutProvider
@@ -138,3 +143,101 @@ def release_full_environment(etos: ETOS, jsontas: JsonTas, suite_id: str) -> tup
             traceback.format_exception(failure, value=failure, tb=failure.__traceback__)
         )
     return True, ""
+
+
+def iut_ruleset(client: Provider, environment: EnvironmentSchema) -> tuple[dict, dict]:
+    iut = environment.spec.iut
+    provider_id = iut.get("provider_id", "")
+    provider = client.get(provider_id)
+    assert provider is not None, f"Could not find an IUT provider with ID {provider_id}"
+    provider_model = ProviderSchema.model_validate(provider.to_dict())
+    if provider_model.spec.jsontas:
+        return provider_model.to_jsontas(), iut
+    else:
+        return provider_model.to_external(), iut
+
+
+def release_iut(ruleset: dict, iut: dict):
+    span_name = "stop_iuts"
+    etos = ETOS("", "", "")
+    jsontas = JsonTas()
+    with TRACER.start_as_current_span(span_name, kind=trace.SpanKind.CLIENT) as span:
+        success, exception = checkin_provider(Iut(**iut), IutProvider(etos, jsontas, ruleset))
+        if not success:
+            span.record_exception(exception)
+            span.set_status(trace.Status(trace.StatusCode.ERROR))
+        if exception:
+            raise exception
+
+
+def logarea_ruleset(client: Provider, environment: EnvironmentSchema) -> tuple[dict, dict]:
+    logarea = environment.spec.log_area
+    provider_id = logarea.get("provider_id", "")
+    provider = client.get(provider_id)
+    assert provider is not None, f"Could not find an log area provider with ID {provider_id}"
+    provider_model = ProviderSchema.model_validate(provider.to_dict())
+    if provider_model.spec.jsontas:
+        return provider_model.to_jsontas(), logarea
+    else:
+        return provider_model.to_external(), logarea
+
+
+def release_logarea(ruleset: dict, logarea: dict):
+    span_name = "stop_log_area"
+    etos = ETOS("", "", "")
+    jsontas = JsonTas()
+    with TRACER.start_as_current_span(span_name, kind=trace.SpanKind.CLIENT) as span:
+        success, exception = checkin_provider(LogArea(**logarea), LogAreaProvider(etos, jsontas, ruleset))
+        if not success:
+            span.record_exception(exception)
+            span.set_status(trace.Status(trace.StatusCode.ERROR))
+        if exception:
+            raise exception
+
+
+def executor_ruleset(client: Provider, environment: EnvironmentSchema) -> tuple[dict, dict]:
+    executor = environment.spec.executor
+    provider_id = executor.get("provider_id", "")
+    provider = client.get(provider_id)
+    assert provider is not None, f"Could not find an execution space provider with ID {provider_id}"
+    provider_model = ProviderSchema.model_validate(provider.to_dict())
+    if provider_model.spec.jsontas:
+        return provider_model.to_jsontas(), executor
+    else:
+        return provider_model.to_external(), executor
+
+
+def release_executor(ruleset: dict, logarea: dict):
+    span_name = "stop_execution_space"
+    etos = ETOS("", "", "")
+    jsontas = JsonTas()
+    with TRACER.start_as_current_span(span_name, kind=trace.SpanKind.CLIENT) as span:
+        success, exception = checkin_provider(ExecutionSpace(**logarea), ExecutionSpaceProvider(etos, jsontas, ruleset))
+        if not success:
+            span.record_exception(exception)
+            span.set_status(trace.Status(trace.StatusCode.ERROR))
+        if exception:
+            raise exception
+
+
+if __name__ == "__main__":
+    logformat = "[%(asctime)s] %(levelname)s:%(message)s"
+    logging.basicConfig(
+        level=logging.INFO, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    try:
+        ENVIRONMENT_ID = sys.argv[1]
+        KUBERNETES = Kubernetes()
+        CLIENT = Environment(KUBERNETES, strict=True)
+        PROVIDER_CLIENT = Provider(KUBERNETES, strict=True)
+        ENVIRONMENT = EnvironmentSchema.model_validate(CLIENT.get(ENVIRONMENT_ID).to_dict())  # type: ignore
+        release_iut(*iut_ruleset(PROVIDER_CLIENT, ENVIRONMENT))
+        release_logarea(*logarea_ruleset(PROVIDER_CLIENT, ENVIRONMENT))
+        release_executor(*executor_ruleset(PROVIDER_CLIENT, ENVIRONMENT))
+    except:
+        try:
+            with open("/dev/termination-log", "w", encoding="utf-8") as termination_log:
+                termination_log.write(traceback.format_exc())
+        except PermissionError:
+            pass
+        raise

@@ -147,6 +147,12 @@ class ExternalProvider:
                 if response.status_code == requests.codes["no_content"]:
                     return
                 response = response.json()
+                if isinstance(response, str):
+                    exc = ExecutionSpaceCheckinFailed(
+                        f"Unable to check in {execution_spaces} ({response})"
+                    )
+                    self._record_exception(exc)
+                    raise exc
                 if response.get("error") is not None:
                     exc = ExecutionSpaceCheckinFailed(
                         f"Unable to check in {execution_spaces} " f"({response.get('error')})"

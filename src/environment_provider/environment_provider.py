@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS Environment Provider module."""
+import sys
 import json
 import logging
 import os
@@ -678,3 +679,25 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             if self.etos.publisher is not None and not self.etos.debug.disable_sending_events:
                 self.etos.publisher.wait_for_unpublished_events()
                 self.etos.publisher.stop()
+
+
+def get_environment():
+    """Entrypoint for getting an environment."""
+    logformat = "[%(asctime)s] %(levelname)s:%(message)s"
+    logging.basicConfig(
+        level=logging.INFO, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    logging.getLogger("gql").setLevel(logging.WARNING)
+    try:
+        EnvironmentProvider().run()
+    except:
+        try:
+            with open("/dev/termination-log", "w", encoding="utf-8") as termination_log:
+                termination_log.write(traceback.format_exc())
+        except PermissionError:
+            pass
+        raise
+
+
+if __name__ == "__main__":
+    get_environment()
