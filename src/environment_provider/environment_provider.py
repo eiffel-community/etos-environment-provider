@@ -22,7 +22,7 @@ import traceback
 import uuid
 from datetime import datetime
 from tempfile import NamedTemporaryFile
-from typing import Any, Union
+from typing import Any, Optional
 
 from etos_lib.etos import ETOS
 from etos_lib.lib.events import EiffelEnvironmentDefinedEvent
@@ -72,7 +72,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     execution_space_provider = None
     testrun = None
 
-    def __init__(self, suite_runner_ids: list[str]) -> None:
+    def __init__(self, suite_runner_ids: Optional[list[str]]=None) -> None:
         """Initialize ETOS, dataset, provider registry and splitter.
 
         :param suite_runner_ids: IDs from the suite runner to correlate sub suites.
