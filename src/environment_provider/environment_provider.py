@@ -689,7 +689,9 @@ def get_environment():
     )
     logging.getLogger("gql").setLevel(logging.WARNING)
     try:
-        EnvironmentProvider().run()
+        status = EnvironmentProvider().run()
+        if status.get("error") is not None:
+            raise Exception(status.get("error"))
     except:
         try:
             with open("/dev/termination-log", "w", encoding="utf-8") as termination_log:
