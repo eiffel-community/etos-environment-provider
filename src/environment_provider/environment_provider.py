@@ -352,11 +352,13 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             raise RuntimeError("Testrun with name %r was not found, cannot create environment",
                                testrun_name)
 
+        labels = dict(testrun.metadata.labels)
+        labels["etos.eiffel-community.github.io/suite-id"] = sub_suite["test_suite_id"]
         environment = EnvironmentSchema(
             metadata=Metadata(
                 name=environment_id,
                 namespace=testrun.metadata.namespace,
-                labels=dict(testrun.metadata.labels),
+                labels=labels,
                 ownerReferences=[
                     OwnerReference(
                         name=testrun.metadata.name,
@@ -592,11 +594,11 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 self.etos.events.send_activity_started(triggered)
 
                 if main_suite_id is None:
-                    # If running as ETOS controller, we need to generate a main suite ID for
-                    # the suite runner to use when it sends its main suites. The main suite
-                    # ID is sent to the Test Runner, so that the test runner can send its sub
+                    # If running as ETOS controller, we will need to get the request ID for
+                    # the suite runner to use when sending main suites. The main suite ID
+                    # is sent to the Test Runner, so that the test runner can send its sub
                     # suite started events in a way that the suite runner can pick them up.
-                    main_suite_id = str(uuid.uuid4())
+                    main_suite_id = os.getenv("REQUEST_ID")
                 self.checkout(test_suite_name, test_runners, datasets.pop(0), main_suite_id)
             except Exception as exception:  # pylint:disable=broad-except
                 error = exception
