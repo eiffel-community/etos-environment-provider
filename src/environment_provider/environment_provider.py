@@ -584,6 +584,16 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                     if main_suite is None:
                         raise TimeoutError("Timed out while waiting for test suite started from ESR")
                     main_suite_id = main_suite["meta"]["id"]
+                else:
+                    # If running as ETOS controller, we will need to get the request ID for
+                    # the suite runner to use when sending main suites. The main suite ID
+                    # is sent to the Test Runner, so that the test runner can send its sub
+                    # suite started events in a way that the suite runner can pick them up.
+                    # TODO: This main suite id should be removed as in the future we cannot
+                    # guarantee that it is allowed as a CONTEXT link or even an eiffel event
+                    # id. It is currently required for ESR.
+                    main_suite_id = os.getenv("REQUEST_ID")
+
                 links = {"CONTEXT": main_suite_id} if main_suite_id is not None else None
                 triggered = self.etos.events.send_activity_triggered(
                     f"Checkout environment for {test_suite_name}",
@@ -593,13 +603,6 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
 
                 self.etos.config.set("environment_provider_context", triggered)
                 self.etos.events.send_activity_started(triggered)
-
-                if main_suite_id is None:
-                    # If running as ETOS controller, we will need to get the request ID for
-                    # the suite runner to use when sending main suites. The main suite ID
-                    # is sent to the Test Runner, so that the test runner can send its sub
-                    # suite started events in a way that the suite runner can pick them up.
-                    main_suite_id = os.getenv("REQUEST_ID")
                 self.checkout(test_suite_name, test_runners, datasets.pop(0), main_suite_id)
             except Exception as exception:  # pylint:disable=broad-except
                 error = exception
