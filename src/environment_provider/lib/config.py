@@ -15,6 +15,7 @@
 # limitations under the License.
 """ETOS Environment Provider configuration module."""
 import logging
+import time
 import json
 import os
 from typing import Union, Optional
@@ -73,6 +74,19 @@ class Config:  # pylint:disable=too-many-instance-attributes
                     value = float(value)
                 self.etos.config.set(key.replace("ENVIRONMENT_PROVIDER_", ""), value)
 
+    def __wait_for_activity(self) -> Optional[dict]:
+        """Wait for activity triggered event."""
+        timeout = time.time() + self.etos.config.get("EVENT_DATA_TIMEOUT")
+        while time.time() <= timeout:
+            time.sleep(1)
+            response = request_activity_triggered(self.etos, self.testrun.spec.id)
+            if response is None:
+                continue
+            edges = response.get("activityTriggered", {}).get("edges", [])
+            if len(edges) == 0:
+                continue
+            return edges[0]["node"]
+
     @property
     def testrun(self) -> TestRunSchema:
         """Testrun returns the current testrun, either from Eiffel TERCC or ETOS TestRun."""
@@ -95,9 +109,8 @@ class Config:  # pylint:disable=too-many-instance-attributes
         :return: Activity Triggered ID
         """
         if self.__activity_triggered is None:
-            response = request_activity_triggered(self.etos, self.testrun.spec.id)
-            assert response is not None, "ActivityTriggered must exist for the environment provider"
-            self.__activity_triggered = response["activityTriggered"]["edges"][0]["node"]
+            self.__activity_triggered = self.__wait_for_activity()
+            assert self.__activity_triggered is not None, "ActivityTriggered must exist for the environment provider"
         try:
             return self.__activity_triggered["meta"]["id"]
         except KeyError:

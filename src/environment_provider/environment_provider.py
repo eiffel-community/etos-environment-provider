@@ -353,7 +353,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                                testrun_name)
 
         labels = dict(testrun.metadata.labels)
-        labels["etos.eiffel-community.github.io/suite-id"] = sub_suite["test_suite_id"]
+        labels["etos.eiffel-community.github.io/suite-id"] = sub_suite["test_suite_started_id"]
+        labels["etos.eiffel-community.github.io/sub-suite-id"] = sub_suite["sub_suite_id"]
         environment = EnvironmentSchema(
             metadata=Metadata(
                 name=environment_id,
