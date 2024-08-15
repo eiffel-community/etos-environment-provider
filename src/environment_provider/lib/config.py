@@ -21,10 +21,18 @@ import os
 from typing import Union, Optional
 
 from etos_lib import ETOS
-from etos_lib.kubernetes.schemas.testrun import TestRun as TestRunSchema, TestRunSpec, Providers
-from etos_lib.kubernetes import Kubernetes, TestRun
+from etos_lib.kubernetes.schemas.testrun import TestRun as TestRunSchema, TestRunSpec, Providers, Suite
+from etos_lib.kubernetes.schemas.environment_request import (
+    EnvironmentRequest as EnvironmentRequestSchema,
+    EnvironmentRequestSpec,
+    EnvironmentProviders,
+    Splitter,
+)
+from etos_lib.kubernetes import Kubernetes, TestRun, EnvironmentRequest
 from etos_lib.kubernetes.schemas.common import Metadata, Image
+from environment_provider.lib.registry import ProviderRegistry
 from packageurl import PackageURL
+from jsontas.jsontas import JsonTas
 
 from .graphql import request_activity_triggered, request_artifact_published, request_artifact_created
 
@@ -34,25 +42,27 @@ class Config:  # pylint:disable=too-many-instance-attributes
 
     logger = logging.getLogger("Config")
     __testrun = None
+    __request = None
     __artifact_created = None
     __artifact_published = None
     __activity_triggered = None
 
-    def __init__(self, etos: ETOS) -> None:
+    def __init__(self, etos: ETOS, ids: Optional[list[str]]=None) -> None:
         """Initialize with ETOS library and automatically load the config.
 
         :param etos: ETOS library instance.
         """
         self.kubernetes = Kubernetes()
         self.etos = etos
+        self.ids = ids
         self.load_config()
 
     @property
     def etos_controller(self) -> bool:
         """Whether or not the environment provider is running as a part of the ETOS controller."""
-        testrun = TestRun(self.kubernetes)
-        testrun_name = os.getenv("TESTRUN")
-        return testrun_name is not None and testrun.exists(testrun_name)
+        request = EnvironmentRequest(self.kubernetes)
+        request_name = os.getenv("REQUEST")
+        return request_name is not None and request.exists(request_name)
 
     def load_config(self) -> None:
         """Load config from environment variables."""
@@ -76,16 +86,40 @@ class Config:  # pylint:disable=too-many-instance-attributes
 
     def __wait_for_activity(self) -> Optional[dict]:
         """Wait for activity triggered event."""
-        timeout = time.time() + self.etos.config.get("EVENT_DATA_TIMEOUT")
+        timeout = time.time() + (self.etos.config.get("EVENT_DATA_TIMEOUT") or 30)  # TODO: This default is nogood
         while time.time() <= timeout:
             time.sleep(1)
-            response = request_activity_triggered(self.etos, self.testrun.spec.id)
+            # This selects an index from the requests list. This is because of how the
+            # current way of running the environment provider works. Whereas the new controller
+            # based way of running will create a request per test suite, the current way
+            # will start the environment provider once for all test suites. We will create
+            # requests per test suite in this config, but they will hold mostly the same
+            # information, such as the identifier being the same on all requests.
+            testrun_id = self.requests[0].spec.identifier
+            response = request_activity_triggered(self.etos, testrun_id)
             if response is None:
                 continue
             edges = response.get("activityTriggered", {}).get("edges", [])
             if len(edges) == 0:
                 continue
             return edges[0]["node"]
+
+    @property
+    def requests(self) -> list[EnvironmentRequestSchema]:  # TODO: This shall not return a list
+        """Request returns the environment request, either from Eiffel TERCC or environment."""
+        if self.__request is None:
+            if self.etos_controller:
+                request_client = EnvironmentRequest(self.kubernetes, strict=True)
+                request_name = os.getenv("REQUEST")
+                assert request_name is not None, "Environment variable REQUEST must be set!"
+                self.__request = [EnvironmentRequestSchema.model_validate(
+                    request_client.get(request_name).to_dict()  # type: ignore
+                )]
+            else:
+                # Whenever the environment provider is run as a part of the suite runner, this variable is set.
+                tercc = json.loads(os.getenv("TERCC", "{}"))
+                self.__request = self.__request_from_tercc(tercc)
+        return self.__request
 
     @property
     def testrun(self) -> TestRunSchema:
@@ -174,6 +208,48 @@ class Config:  # pylint:disable=too-many-instance-attributes
             }
         }
 
+    def __request_from_tercc(self, tercc: dict) -> list[EnvironmentRequestSchema]:
+        assert self.ids is not None, "Suite runner IDs must be provided when running outside of controller"
+        requests = []
+        response = request_artifact_created(self.etos, tercc["links"][0]["target"])
+        assert response is not None, "ArtifactCreated must exist for the environment provider"
+        self.__artifact_created = response
+        artifact = response["artifactCreated"]["edges"][0]["node"]
+
+        test_suites = self.__test_suite(tercc)
+
+        registry = ProviderRegistry(self.etos, JsonTas(), tercc["meta"]["id"])
+
+        datasets = registry.dataset()
+        if isinstance(datasets, list):
+            assert len(datasets) == len(
+                test_suites
+            ), "If multiple datasets are provided it must correspond with number of test suites"
+        else:
+            datasets = [datasets] * len(test_suites)
+
+        for suite in test_suites:
+            requests.append(EnvironmentRequestSchema(
+                metadata=Metadata(),
+                spec=EnvironmentRequestSpec(
+                    id=self.ids.pop(0),
+                    name=suite.get("name"),
+                    identifier=tercc["meta"]["id"],
+                    artifact=artifact["meta"]["id"],
+                    identity=artifact["data"]["identity"],
+                    minimumAmount=1,
+                    maximumAmount=10,
+                    image="N/A",
+                    imagePullPolicy="N/A",
+                    splitter=Splitter(
+                        tests=Suite.tests_from_recipes(suite.get("recipes", []))
+                    ),
+                    dataset=datasets.pop(0),
+                    providers=EnvironmentProviders()
+                )
+            ))
+        return requests
+
     def __testrun_from_tercc(self, tercc: dict) -> TestRunSchema:
         """Testrun from tercc will create a fake TestRun schema from TERCC.
 
@@ -231,3 +307,11 @@ class Config:  # pylint:disable=too-many-instance-attributes
             return []
         except AttributeError:
             return []
+
+
+if __name__ == "__main__":
+    ETOS_LIB = ETOS("", "", "")
+    REGISTRY = ProviderRegistry(ETOS_LIB, JsonTas(), "12345")
+    CONFIG = Config(ETOS_LIB,REGISTRY)
+    print(CONFIG.etos_controller)
+    print(CONFIG.request)

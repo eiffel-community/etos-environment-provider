@@ -217,9 +217,9 @@ class ExternalProvider:
                 ),
             },
             "artifact_id": self.dataset.get("artifact_id"),
-            "artifact_created": self.dataset.get("artifact_created"),
-            "artifact_published": self.dataset.get("artifact_published"),
-            "tercc": self.dataset.get("tercc"),
+            "artifact_created": self.dataset.get("artifact_created") or {},
+            "artifact_published": self.dataset.get("artifact_published") or {},
+            "tercc": self.dataset.get("tercc") or {},
             "dataset": self.dataset.get("dataset"),
             "context": self.dataset.get("context"),
         }

@@ -44,7 +44,7 @@ class Prepare:  # pylint:disable=too-few-public-methods
         # Pop the config as it contains values that are not pickleable.
         # Pickle is used by deepcopy inside of 'dataset.copy' which is required
         # during the preparation step.
-        self.config = self.dataset._Dataset__dataset.pop("config")
+        # self.config = self.dataset._Dataset__dataset.pop("config")
 
     def execute_preparation_steps(self, iut: Iut, preparation_steps: dict) -> tuple[bool, Iut]:
         """Execute the preparation steps for the environment provider on an IUT.
@@ -56,7 +56,7 @@ class Prepare:  # pylint:disable=too-few-public-methods
         try:
             with self.lock:
                 dataset = self.dataset.copy()
-                dataset.add("config", self.config)
+                # dataset.add("config", self.config)
             jsontas = JsonTas(dataset=dataset)
             steps = {}
             dataset.add("iut", iut)
@@ -85,33 +85,33 @@ class Prepare:  # pylint:disable=too-few-public-methods
         """
         iuts = deepcopy(iuts)
         failed_iuts = []
-        try:
-            if not self.prepare_ruleset:
-                self.logger.info("No defined preparation rule.")
-                return iuts, []
-            thread_pool = ThreadPool()
+        # try:
+        if not self.prepare_ruleset:
+            self.logger.info("No defined preparation rule.")
+            return iuts, []
+        thread_pool = ThreadPool()
 
-            stages = self.prepare_ruleset.get("stages", {})
-            steps = stages.get("environment_provider", {}).get("steps", {})
-            results = []
-            for iut in reversed(iuts):
-                self.logger.info("Preparing IUT %r", iut)
-                results.append(
-                    thread_pool.apply_async(
-                        self.execute_preparation_steps,
-                        args=(iut, deepcopy(steps)),
-                    )
+        stages = self.prepare_ruleset.get("stages", {})
+        steps = stages.get("environment_provider", {}).get("steps", {})
+        results = []
+        for iut in reversed(iuts):
+            self.logger.info("Preparing IUT %r", iut)
+            results.append(
+                thread_pool.apply_async(
+                    self.execute_preparation_steps,
+                    args=(iut, deepcopy(steps)),
                 )
-            for result in results:
-                success, iut = result.get()
-                if not success:
-                    self.logger.error("Unable to prepare %r.", iut)
-                    iuts.remove(iut)
-                    failed_iuts.append(iut)
-                else:
-                    iut.update(**deepcopy(stages))
-            self.dataset.add("iuts", deepcopy(iuts))
-            return iuts, failed_iuts
-        finally:
+            )
+        for result in results:
+            success, iut = result.get()
+            if not success:
+                self.logger.error("Unable to prepare %r.", iut)
+                iuts.remove(iut)
+                failed_iuts.append(iut)
+            else:
+                iut.update(**deepcopy(stages))
+        self.dataset.add("iuts", deepcopy(iuts))
+        return iuts, failed_iuts
+        # finally:
             # Re-add the config that was popped in __init__.
-            self.dataset.add("config", self.config)
+            # self.dataset.add("config", self.config)
