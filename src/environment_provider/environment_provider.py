@@ -30,6 +30,7 @@ from etos_lib.lib.events import EiffelEnvironmentDefinedEvent
 from etos_lib.logging.logger import FORMAT_CONFIG
 from etos_lib.opentelemetry.semconv import Attributes as SemConvAttributes
 from etos_lib.kubernetes import Kubernetes, Environment, Provider
+from etos_lib.kubernetes.schemas.common import OwnerReference
 from etos_lib.kubernetes.schemas import Environment as EnvironmentSchema, EnvironmentSpec, Metadata
 from etos_lib.kubernetes.schemas import Test
 from etos_lib.kubernetes.schemas import Provider as ProviderSchema
@@ -283,12 +284,23 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         labels = request.metadata.labels or {}
         labels["etos.eiffel-community.github.io/suite-id"] = sub_suite["test_suite_started_id"]
         labels["etos.eiffel-community.github.io/sub-suite-id"] = sub_suite["sub_suite_id"]
+        owners = request.metadata.ownerReferences
+        owners.append(
+            OwnerReference(
+                kind="EnvironmentRequest",
+                name=request.metadata.name,
+                uid=request.metadata.uid,
+                apiVersion="etos.eiffel-community.github.io/v1alpha1",
+                controller=False,
+                blockOwnerDeletion=True,
+            )
+        )
         environment = EnvironmentSchema(
             metadata=Metadata(
                 name=environment_id,
                 namespace=request.metadata.namespace,
                 labels=labels,
-                ownerReferences=request.metadata.ownerReferences,
+                ownerReferences=owners,
             ),
             spec=EnvironmentSpec(**sub_suite.copy())
         )
