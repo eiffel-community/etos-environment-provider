@@ -510,12 +510,10 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             # When running as ETOS controller, we expect the suite runner to receive the
             # Environment resource instead of relying on Eiffel.
             if not self.environment_provider_config.etos_controller:
-                # TODO: Enable this
-                # main_suite = self.wait_for_main_suite(request.spec.id)
-                # if main_suite is None:
-                #     raise TimeoutError("Timed out while waiting for test suite started from ESR")
-                # main_suite_id = main_suite["meta"]["id"]
-                main_suite_id = request.spec.id
+                main_suite = self.wait_for_main_suite(request.spec.id)
+                if main_suite is None:
+                    raise TimeoutError("Timed out while waiting for test suite started from ESR")
+                main_suite_id = main_suite["meta"]["id"]
             else:
                 # If running as ETOS controller, we will need to get the request ID for
                 # the suite runner to use when sending main suites. The main suite ID

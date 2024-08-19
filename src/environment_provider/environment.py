@@ -146,6 +146,7 @@ def release_full_environment(etos: ETOS, jsontas: JsonTas, suite_id: str) -> tup
 
 
 def iut_ruleset(client: Provider, environment: EnvironmentSchema) -> tuple[dict, dict]:
+    """Iut ruleset to use when releasing."""
     iut = environment.spec.iut
     provider_id = iut.get("provider_id", "")
     provider = client.get(provider_id)
@@ -158,6 +159,7 @@ def iut_ruleset(client: Provider, environment: EnvironmentSchema) -> tuple[dict,
 
 
 def release_iut(ruleset: dict, iut: dict):
+    """Release an IUT."""
     span_name = "stop_iuts"
     etos = ETOS("", "", "")
     jsontas = JsonTas()
@@ -171,6 +173,7 @@ def release_iut(ruleset: dict, iut: dict):
 
 
 def logarea_ruleset(client: Provider, environment: EnvironmentSchema) -> tuple[dict, dict]:
+    """Log area ruleset to use when releasing."""
     logarea = environment.spec.log_area
     provider_id = logarea.get("provider_id", "")
     provider = client.get(provider_id)
@@ -183,6 +186,7 @@ def logarea_ruleset(client: Provider, environment: EnvironmentSchema) -> tuple[d
 
 
 def release_logarea(ruleset: dict, logarea: dict):
+    """Release a log area."""
     span_name = "stop_log_area"
     etos = ETOS("", "", "")
     jsontas = JsonTas()
@@ -196,6 +200,7 @@ def release_logarea(ruleset: dict, logarea: dict):
 
 
 def executor_ruleset(client: Provider, environment: EnvironmentSchema) -> tuple[dict, dict]:
+    """Executor ruleset to use when releasing."""
     executor = environment.spec.executor
     provider_id = executor.get("provider_id", "")
     provider = client.get(provider_id)
@@ -208,6 +213,7 @@ def executor_ruleset(client: Provider, environment: EnvironmentSchema) -> tuple[
 
 
 def release_executor(ruleset: dict, logarea: dict):
+    """Release an executor."""
     span_name = "stop_execution_space"
     etos = ETOS("", "", "")
     jsontas = JsonTas()
@@ -220,20 +226,20 @@ def release_executor(ruleset: dict, logarea: dict):
             raise exception
 
 
-if __name__ == "__main__":
+def run(environment_id: str):
+    """Run is an entrypoint for releasing environments."""
     logformat = "[%(asctime)s] %(levelname)s:%(message)s"
     logging.basicConfig(
         level=logging.INFO, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S"
     )
     try:
-        ENVIRONMENT_ID = sys.argv[1]
-        KUBERNETES = Kubernetes()
-        CLIENT = Environment(KUBERNETES, strict=True)
-        PROVIDER_CLIENT = Provider(KUBERNETES, strict=True)
-        ENVIRONMENT = EnvironmentSchema.model_validate(CLIENT.get(ENVIRONMENT_ID).to_dict())  # type: ignore
-        release_iut(*iut_ruleset(PROVIDER_CLIENT, ENVIRONMENT))
-        release_logarea(*logarea_ruleset(PROVIDER_CLIENT, ENVIRONMENT))
-        release_executor(*executor_ruleset(PROVIDER_CLIENT, ENVIRONMENT))
+        kubernetes = Kubernetes()
+        client = Environment(kubernetes, strict=True)
+        provider_client = Provider(kubernetes, strict=True)
+        environment = EnvironmentSchema.model_validate(client.get(environment_id).to_dict())  # type: ignore
+        release_iut(*iut_ruleset(provider_client, environment))
+        release_logarea(*logarea_ruleset(provider_client, environment))
+        release_executor(*executor_ruleset(provider_client, environment))
     except:
         try:
             with open("/dev/termination-log", "w", encoding="utf-8") as termination_log:
@@ -241,3 +247,7 @@ if __name__ == "__main__":
         except PermissionError:
             pass
         raise
+
+
+if __name__ == "__main__":
+    run(sys.argv[1])

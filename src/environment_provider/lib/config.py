@@ -41,8 +41,6 @@ class Config:  # pylint:disable=too-many-instance-attributes
 
     logger = logging.getLogger("Config")
     __request = None
-    __artifact_created = None
-    __artifact_published = None
     __activity_triggered = None
 
     def __init__(self, etos: ETOS, ids: Optional[list[str]]=None) -> None:
@@ -198,11 +196,3 @@ class Config:  # pylint:disable=too-many-instance-attributes
             return []
         except AttributeError:
             return []
-
-
-if __name__ == "__main__":
-    ETOS_LIB = ETOS("", "", "")
-    REGISTRY = ProviderRegistry(ETOS_LIB, JsonTas(), "12345")
-    CONFIG = Config(ETOS_LIB,REGISTRY)
-    print(CONFIG.etos_controller)
-    print(CONFIG.request)
