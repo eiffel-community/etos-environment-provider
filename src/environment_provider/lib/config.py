@@ -18,30 +18,28 @@ import logging
 import time
 import json
 import os
-from typing import Union, Optional
+from typing import Optional
 
 from etos_lib import ETOS
-from etos_lib.kubernetes.schemas.testrun import TestRun as TestRunSchema, TestRunSpec, Providers, Suite
+from etos_lib.kubernetes.schemas.testrun import Suite
 from etos_lib.kubernetes.schemas.environment_request import (
     EnvironmentRequest as EnvironmentRequestSchema,
     EnvironmentRequestSpec,
     EnvironmentProviders,
     Splitter,
 )
-from etos_lib.kubernetes import Kubernetes, TestRun, EnvironmentRequest
-from etos_lib.kubernetes.schemas.common import Metadata, Image
+from etos_lib.kubernetes import Kubernetes, EnvironmentRequest
+from etos_lib.kubernetes.schemas.common import Metadata
 from environment_provider.lib.registry import ProviderRegistry
-from packageurl import PackageURL
 from jsontas.jsontas import JsonTas
 
-from .graphql import request_activity_triggered, request_artifact_published, request_artifact_created
+from .graphql import request_activity_triggered, request_artifact_created
 
 
 class Config:  # pylint:disable=too-many-instance-attributes
     """Environment provider configuration."""
 
     logger = logging.getLogger("Config")
-    __testrun = None
     __request = None
     __artifact_created = None
     __artifact_published = None
@@ -122,21 +120,6 @@ class Config:  # pylint:disable=too-many-instance-attributes
         return self.__request
 
     @property
-    def testrun(self) -> TestRunSchema:
-        """Testrun returns the current testrun, either from Eiffel TERCC or ETOS TestRun."""
-        if self.__testrun is None:
-            if self.etos_controller:
-                testrun_client = TestRun(self.kubernetes, strict=True)
-                testrun_name = os.getenv("TESTRUN")
-                assert testrun_name is not None, "Environment variable TESTRUN must be set!"
-                self.__testrun = TestRunSchema.model_validate(testrun_client.get(testrun_name).to_dict())  # type: ignore
-            else:
-                # Whenever the environment provider is run as a part of the suite runner, this variable is set.
-                tercc = json.loads(os.getenv("TERCC", "{}"))
-                self.__testrun = self.__testrun_from_tercc(tercc)
-        return self.__testrun
-
-    @property
     def context(self) -> str:
         """Get activity triggered ID.
 
@@ -149,64 +132,6 @@ class Config:  # pylint:disable=too-many-instance-attributes
             return self.__activity_triggered["meta"]["id"]
         except KeyError:
             return ""
-
-    @property
-    def artifact_id(self) -> str:
-        """Get artifact ID.
-
-        :return: Artifact ID
-        """
-        try:
-            return self.testrun.spec.artifact
-        except KeyError:
-            return ""
-
-    @property
-    def artifact_created(self) -> dict:
-        """Artifact created event that is the IUT of this execution."""
-        if self.__artifact_created is None:
-            response = request_artifact_created(self.etos, self.artifact_id)
-            assert response is not None, "ArtifactCreated must exist for the environment provider"
-            self.__artifact_created = response["artifactCreated"]["edges"][0]["node"]
-        return self.__artifact_created
-
-    @property
-    def artifact_published(self) -> Optional[dict]:
-        """Artifact published event where we shall find the IUT software, if it exists."""
-        if self.__artifact_published is None:
-            response = request_artifact_published(self.etos, self.artifact_id)
-            if response is not None:
-                self.__artifact_published = response["artifactPublished"]["edges"][0]["node"]
-        return self.__artifact_published
-
-    @property
-    def identity(self) -> Union[PackageURL, str]:
-        """Get artifact identity.
-
-        :return: Artifact identity.
-        """
-        try:
-            return PackageURL.from_string(self.testrun.spec.identity)
-        except KeyError:
-            return ""
-
-    @property
-    def tercc(self) -> dict:
-        """This is a fake TERCC event with all fields that existed before.
-
-        While we are working towards the ETOS controller style of running tests,
-        we keep this as to be backwards compatible. If the ETOS controller
-        becomes the way we run tests, we shall remove this property and fix up
-        the environment provider.
-        """
-        return {
-            "meta": {
-                "id": self.testrun.spec.id
-            },
-            "data": {
-                "batchesUri": self.testrun.spec.suiteSource
-            }
-        }
 
     def __request_from_tercc(self, tercc: dict) -> list[EnvironmentRequestSchema]:
         assert self.ids is not None, "Suite runner IDs must be provided when running outside of controller"
@@ -249,40 +174,6 @@ class Config:  # pylint:disable=too-many-instance-attributes
                 )
             ))
         return requests
-
-    def __testrun_from_tercc(self, tercc: dict) -> TestRunSchema:
-        """Testrun from tercc will create a fake TestRun schema from TERCC.
-
-        Some fields in this testrun schema are set to Unknown. This is fine for
-        now, but might want to look into populating a few of them, such as
-        'dataset' & 'providers', depending on how long we want to roll with
-        both implementations of ETOS.
-        """
-        testrun = TestRunSchema(
-            metadata=Metadata(),
-            spec=TestRunSpec(
-                cluster="Unknown",
-                artifact=tercc["links"][0]["target"],
-                suiteRunner=Image(image="Unknown"),
-                logListener=Image(image="Unknown"),
-                environmentProvider=Image(image="Unknown"),
-                providers=Providers(
-                    executionSpace="Unknown",
-                    iut="Unknown",
-                    logArea="Unknown",
-                ),
-                id=tercc["meta"]["id"],
-                identity="Unknown",
-                suiteSource=tercc.get("data", {}).get("batchesUri", "n/a"),
-                suites=TestRunSpec.from_tercc(self.__test_suite(tercc), {}),
-            )
-        )
-        response = request_artifact_created(self.etos, testrun.spec.artifact)
-        assert response is not None, "ArtifactCreated must exist for the environment provider"
-        self.__artifact_created = response
-        node = response["artifactCreated"]["edges"][0]["node"]
-        testrun.spec.identity = node["data"]["identity"]
-        return testrun
 
     def __test_suite(self, tercc: dict) -> list[dict]:
         """Download and return test batches.
