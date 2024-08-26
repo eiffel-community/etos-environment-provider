@@ -82,7 +82,7 @@ class Config:  # pylint:disable=too-many-instance-attributes
 
     def __wait_for_activity(self) -> Optional[dict]:
         """Wait for activity triggered event."""
-        timeout = time.time() + (self.etos.config.get("EVENT_DATA_TIMEOUT") or 30)  # TODO: This default is nogood
+        timeout = time.time() + self.etos.config.get("EVENT_DATA_TIMEOUT")  # type: ignore
         while time.time() <= timeout:
             time.sleep(1)
             # This selects an index from the requests list. This is because of how the
@@ -100,8 +100,10 @@ class Config:  # pylint:disable=too-many-instance-attributes
                 continue
             return edges[0]["node"]
 
+    # TODO: The requests method shall not return a list in the future, this is just to
+    # keep the changes backwards compatible.
     @property
-    def requests(self) -> list[EnvironmentRequestSchema]:  # TODO: This shall not return a list
+    def requests(self) -> list[EnvironmentRequestSchema]:
         """Request returns the environment request, either from Eiffel TERCC or environment."""
         if self.__request is None:
             if self.etos_controller:
@@ -136,7 +138,6 @@ class Config:  # pylint:disable=too-many-instance-attributes
         requests = []
         response = request_artifact_created(self.etos, tercc["links"][0]["target"])
         assert response is not None, "ArtifactCreated must exist for the environment provider"
-        self.__artifact_created = response
         artifact = response["artifactCreated"]["edges"][0]["node"]
 
         test_suites = self.__test_suite(tercc)
@@ -161,7 +162,7 @@ class Config:  # pylint:disable=too-many-instance-attributes
                     artifact=artifact["meta"]["id"],
                     identity=artifact["data"]["identity"],
                     minimumAmount=1,
-                    maximumAmount=10,
+                    maximumAmount=10,  # TODO: Ignored in environment_provider.py
                     image="N/A",
                     imagePullPolicy="N/A",
                     splitter=Splitter(

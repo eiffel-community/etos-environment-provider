@@ -53,7 +53,6 @@ class Prepare:  # pylint:disable=too-few-public-methods
         try:
             with self.lock:
                 dataset = self.dataset.copy()
-                # dataset.add("config", self.config)
             jsontas = JsonTas(dataset=dataset)
             steps = {}
             dataset.add("iut", iut)

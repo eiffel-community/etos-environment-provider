@@ -118,7 +118,7 @@ class ProviderRegistry:
         :return: Provider JSON or None.
         """
         if self.testrun is None:
-            self.logger.error("Could not retrieve execution spce provider from database")
+            self.logger.error("Could not retrieve execution space provider from database")
             return None
         provider = self.testrun.join("provider/execution-space").read()
         if provider:

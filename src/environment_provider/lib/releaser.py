@@ -15,13 +15,10 @@
 # limitations under the License.
 """Releaser of environments."""
 import logging
-from typing import Optional
 from jsontas.jsontas import JsonTas
 from opentelemetry import trace
-from environment_provider.lib.registry import ProviderRegistry
-from etos_lib.kubernetes.schemas import Environment as EnvironmentSchema, EnvironmentSpec
+from etos_lib.kubernetes.schemas import Environment as EnvironmentSchema
 from etos_lib.kubernetes.schemas import Provider as ProviderSchema
-from etos_lib.kubernetes.schemas.common import Metadata
 from etos_lib.kubernetes import Kubernetes, Environment, Provider
 from etos_lib import ETOS
 from execution_space_provider import ExecutionSpaceProvider
@@ -57,7 +54,7 @@ class Releaser:
         else:
             return provider_model.to_external()
 
-    def run(self):
+    def run(self) -> None:
         """Run a release task for ETOS."""
         raise NotImplemented
 
