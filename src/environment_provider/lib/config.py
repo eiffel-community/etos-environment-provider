@@ -82,6 +82,7 @@ class Config:  # pylint:disable=too-many-instance-attributes
 
     def __wait_for_activity(self) -> Optional[dict]:
         """Wait for activity triggered event."""
+        self.logger.info("Waiting for an activity triggered event %ds", self.etos.config.get("EVENT_DATA_TIMEOUT"))
         timeout = time.time() + self.etos.config.get("EVENT_DATA_TIMEOUT")  # type: ignore
         while time.time() <= timeout:
             time.sleep(1)
@@ -92,13 +93,19 @@ class Config:  # pylint:disable=too-many-instance-attributes
             # requests per test suite in this config, but they will hold mostly the same
             # information, such as the identifier being the same on all requests.
             testrun_id = self.requests[0].spec.identifier
+            self.logger.info("Testrun ID is %s", testrun_id)
             response = request_activity_triggered(self.etos, testrun_id)
+            self.logger.info("Response from GraphQL query: %s", response)
             if response is None:
+                self.logger.info("No response from event repository yet, retrying")
                 continue
             edges = response.get("activityTriggered", {}).get("edges", [])
+            self.logger.info("Activity triggered edges found: %s", edges)
             if len(edges) == 0:
+                self.logger.info("No activity triggered found yet, retrying")
                 continue
             return edges[0]["node"]
+        self.logger.info("Activity triggered event not found after %ds", self.etos.config.get("EVENT_DATA_TIMEOUT"))
 
     # TODO: The requests method shall not return a list in the future, this is just to
     # keep the changes backwards compatible.
