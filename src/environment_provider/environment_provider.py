@@ -624,10 +624,14 @@ def get_environment():
         status = EnvironmentProvider().run()
         if status.get("error") is not None:
             raise Exception(status.get("error"))
+        result = {"conclusion": "Successful", "description": "Successfully provisioned an environment"}
+        with open("/dev/termination-log", "w", encoding="utf-8") as termination_log:
+            json.dump(result, termination_log)
     except:
         try:
+            result = {"conclusion": "Failed", "description": traceback.format_exc()}
             with open("/dev/termination-log", "w", encoding="utf-8") as termination_log:
-                termination_log.write(traceback.format_exc())
+                json.dump(result, termination_log)
         except PermissionError:
             pass
         raise

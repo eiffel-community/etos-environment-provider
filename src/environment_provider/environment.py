@@ -155,10 +155,14 @@ def run(environment_id: str):
     try:
         releaser = EnvironmentReleaser()
         releaser.run(environment_id)
+        result = {"conclusion": "Successful", "description": "Successfully released an environment"}
+        with open("/dev/termination-log", "w", encoding="utf-8") as termination_log:
+            json.dump(result, termination_log)
     except:
         try:
+            result = {"conclusion": "Failed", "description": traceback.format_exc()}
             with open("/dev/termination-log", "w", encoding="utf-8") as termination_log:
-                termination_log.write(traceback.format_exc())
+                json.dump(result, termination_log)
         except PermissionError:
             pass
         raise
