@@ -19,6 +19,7 @@ from copy import deepcopy
 from typing import Any, Iterable, Iterator
 
 from etos_lib import ETOS
+from etos_lib.kubernetes.schemas.environment_request import Splitter as SplitterSchema
 
 from iut_provider.iut import Iut
 
@@ -26,14 +27,15 @@ from iut_provider.iut import Iut
 class Splitter:
     """Environment provider test suite splitter."""
 
-    def __init__(self, etos: ETOS, ruleset: dict) -> None:
+    def __init__(self, etos: ETOS, config: SplitterSchema) -> None:
         """Initialize with etos library and splitter ruleset.
 
         :param etos: ETOS library instance.
         :param ruleset: JSONTas ruleset for handling splitter algorithms.
         """
         self.etos = etos
-        self.ruleset = ruleset
+        self.config = config
+        self.unsplit_tests = self.config.tests
 
     @staticmethod
     def _iterator(iterable: Iterable) -> Iterator[Any]:

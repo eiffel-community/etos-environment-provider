@@ -107,6 +107,15 @@ class GraphQLHandler(BaseHTTPRequestHandler):
         """
         return {"data": {"artifactPublished": {"edges": [{"node": {"data": {"locations": []}}}]}}}
 
+    def artifact_created(self):
+        """Create a fake artifact created event.
+
+        :return: A graphql response with an artifact created event.
+        :rtype dict:
+        """
+        artifact_id = self.tercc["links"][0]["target"]
+        return {"data": {"artifactCreated": {"edges": [{"node": {"data": {"identity": "pkg:test/environment-provider"}}, "meta": {"id": artifact_id}}]}}}
+
     def test_suite_started(self):
         """Create a fake test suite started to simulate ESR.
 
@@ -126,10 +135,10 @@ class GraphQLHandler(BaseHTTPRequestHandler):
         request_data = self.rfile.read(int(self.headers["Content-Length"]))
         query_name = self.get_gql_query(request_data)
 
-        if query_name == "testExecutionRecipeCollectionCreated":
-            response = self.test_execution_recipe_collection_created()
-        elif query_name == "activityTriggered":
+        if query_name == "activityTriggered":
             response = self.activity_triggered()
+        elif query_name == "artifactCreated":
+            response = self.artifact_created()
         elif query_name == "artifactPublished":
             response = self.artifact_published()
         elif query_name == "testSuiteStarted":

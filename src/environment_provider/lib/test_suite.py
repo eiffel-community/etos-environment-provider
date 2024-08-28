@@ -15,6 +15,7 @@
 # limitations under the License.
 """Test suite module."""
 from iut_provider.iut import Iut
+from etos_lib.kubernetes.schemas.environment_request import EnvironmentRequest
 
 from .config import Config
 
@@ -142,7 +143,7 @@ class TestSuite:
         self.suite_runner_id = suite_runner_id
         self.environment_provider_config = environment_provider_config
 
-    def add(self, test_runner: str, iut: Iut, suite: dict, priority: int) -> dict:
+    def add(self, request: EnvironmentRequest, test_runner: str, iut: Iut, suite: dict, priority: int) -> dict:
         """Add a new sub suite to suite.
 
         :param test_runner: The test runner to use for sub suite.
@@ -153,21 +154,17 @@ class TestSuite:
         """
         sub_suite = {
             "name": f"{self.test_suite_name}_SubSuite_{len(self._suite['sub_suites'])}",
-            "suite_id": self.environment_provider_config.tercc_id,
+            "suite_id": request.spec.identifier,
             "sub_suite_id": suite.get("sub_suite_id"),
             "test_suite_started_id": self.suite_runner_id,
             "priority": priority,
             "recipes": suite.get("recipes", []),
             "test_runner": test_runner,
             "iut": iut.as_dict,
-            "artifact": self.environment_provider_config.artifact_id,
+            "artifact": request.spec.artifact,
             "context": self.environment_provider_config.context,
             "executor": suite.get("executor").as_dict,
             "log_area": suite.get("log_area").as_dict,
         }
         self._suite["sub_suites"].append(sub_suite)
         return sub_suite
-
-    def to_json(self) -> dict:
-        """Return test suite as a JSON dictionary."""
-        return self._suite

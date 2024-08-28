@@ -158,9 +158,10 @@ class TestEnvironmentProvider(unittest.TestCase):
             )
             os.environ["ETOS_GRAPHQL_SERVER"] = server.host
             os.environ["ETOS_API"] = server.host
+            os.environ["TERCC"] = json.dumps(tercc)
 
             self.logger.info("STEP: Run the environment provider.")
-            environment_provider = EnvironmentProvider(suite_id, suite_runner_ids)
+            environment_provider = EnvironmentProvider(suite_runner_ids)
             result = environment_provider.run()
             print(result)
         self.assertIsNone(result.get("error"))
@@ -207,9 +208,10 @@ class TestEnvironmentProvider(unittest.TestCase):
             )
             os.environ["ETOS_GRAPHQL_SERVER"] = server.host
             os.environ["ETOS_API"] = server.host
+            os.environ["TERCC"] = json.dumps(tercc)
 
             self.logger.info("STEP: Run the environment provider.")
-            environment_provider = EnvironmentProvider(suite_id, suite_runner_ids)
+            environment_provider = EnvironmentProvider(suite_runner_ids)
             result = environment_provider.run()
             print(result)
         self.assertIsNone(result.get("error"))
@@ -259,9 +261,10 @@ class TestEnvironmentProvider(unittest.TestCase):
             )
             os.environ["ETOS_GRAPHQL_SERVER"] = server.host
             os.environ["ETOS_API"] = server.host
+            os.environ["TERCC"] = json.dumps(tercc)
 
             self.logger.info("STEP: Run the environment provider.")
-            environment_provider = EnvironmentProvider(suite_id, suite_runner_ids)
+            environment_provider = EnvironmentProvider(suite_runner_ids)
             result = environment_provider.run()
         self.assertIsNone(result.get("error"))
 
@@ -309,9 +312,10 @@ class TestEnvironmentProvider(unittest.TestCase):
             )
             os.environ["ETOS_GRAPHQL_SERVER"] = server.host
             os.environ["ETOS_API"] = server.host
+            os.environ["TERCC"] = json.dumps(tercc)
 
             self.logger.info("STEP: Run the environment provider.")
-            environment_provider = EnvironmentProvider(suite_id, suite_runner_ids)
+            environment_provider = EnvironmentProvider(suite_runner_ids)
             result = environment_provider.run()
             print(result)
         self.assertIsNone(result.get("error"))
