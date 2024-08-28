@@ -183,12 +183,18 @@ class ExternalProvider:
         :return: The ID of the external execution space provider request.
         """
         self.logger.debug("Start external execution space provider")
-        rabbitmq = self.etos.config.get("rabbitmq")
-        rabbitmq_password = rabbitmq.get("password")
+        rabbitmq = self.etos.config.get("rabbitmq") or {}
+        etos_rabbitmq = self.etos.config.etos_rabbitmq_publisher_data()
+        rabbitmq_password = rabbitmq.get("password", "")
+        etos_rabbitmq_password = etos_rabbitmq.get("password", "")
         if os.getenv("ETOS_ENCRYPTION_KEY") is not None:
             rabbitmq_password = encrypt(
                 rabbitmq_password.encode(), os.getenv("ETOS_ENCRYPTION_KEY")
             )
+            etos_rabbitmq_password = encrypt(
+                etos_rabbitmq_password.encode(), os.getenv("ETOS_ENCRYPTION_KEY", "")
+            )
+        source = self.etos.config.get("source") or {}
         data = {
             "minimum_amount": minimum_amount,
             "maximum_amount": maximum_amount,
@@ -202,7 +208,14 @@ class ExternalProvider:
                 "RABBITMQ_PORT": str(rabbitmq.get("port")),
                 "RABBITMQ_VHOST": rabbitmq.get("vhost"),
                 "RABBITMQ_SSL": str(rabbitmq.get("ssl")).lower(),
-                "SOURCE_HOST": self.etos.config.get("source").get("host"),
+                "ETOS_RABBITMQ_HOST": etos_rabbitmq.get("host"),
+                "ETOS_RABBITMQ_USERNAME": etos_rabbitmq.get("username"),
+                "ETOS_RABBITMQ_PASSWORD": etos_rabbitmq_password,
+                "ETOS_RABBITMQ_EXCHANGE": etos_rabbitmq.get("exchange"),
+                "ETOS_RABBITMQ_PORT": str(etos_rabbitmq.get("port")),
+                "ETOS_RABBITMQ_VHOST": etos_rabbitmq.get("vhost"),
+                "ETOS_RABBITMQ_SSL": str(etos_rabbitmq.get("ssl")).lower(),
+                "SOURCE_HOST": source.get("host"),
                 "ETOS_GRAPHQL_SERVER": self.etos.debug.graphql_server,
                 "ETOS_API": self.etos.debug.etos_api,
                 "ETR_VERSION": os.getenv(
