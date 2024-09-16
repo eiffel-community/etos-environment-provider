@@ -17,6 +17,7 @@
 import json
 import time
 import traceback
+import re
 from typing import Optional, Union
 
 from etos_lib import ETOS
@@ -34,6 +35,8 @@ from log_area_provider.log_area import LogArea
 
 
 TRACER = trace.get_tracer(__name__)
+# REGEX for matching /testrun/tercc-id/suite/main-suite-id/subsuite/subsuite-id/suite.
+REGEX = r"/testrun/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/suite/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/subsuite/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/suite"
 
 
 def checkin_provider(
@@ -130,13 +133,15 @@ def release_full_environment(etos: ETOS, jsontas: JsonTas, suite_id: str) -> tup
     # etos-client has enough time to find and download them.
     time.sleep(30)
     for suite, metadata in registry.testrun.join("suite").read_all():
-        suite = json.loads(suite)
-        for sub_suite in suite.get("sub_suites", []):
-            try:
-                failure = release_environment(etos, jsontas, registry, sub_suite)
-            except json.JSONDecodeError as exception:
-                failure = exception
-        ETCDPath(metadata.get("key")).delete()
+        key = metadata.get("key", b"").decode()
+        if re.match(REGEX, key) is None:
+            continue
+        try:
+            sub_suite = json.loads(suite)
+            failure = release_environment(etos, jsontas, registry, sub_suite)
+        except json.JSONDecodeError as exception:
+            failure = exception
+        ETCDPath(key).delete()
     registry.testrun.delete_all()
 
     if failure:
