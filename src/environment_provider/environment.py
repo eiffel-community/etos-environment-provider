@@ -36,7 +36,7 @@ from log_area_provider.log_area import LogArea
 
 TRACER = trace.get_tracer(__name__)
 # REGEX for matching /testrun/tercc-id/suite/main-suite-id/subsuite/subsuite-id/suite.
-REGEX = r"/testrun/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/suite/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/subsuite/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/suite"  # pylint:disable=line-too-long
+SUBSUITE_REGEX = r"/testrun/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/suite/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/subsuite/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/suite"  # pylint:disable=line-too-long
 
 
 def checkin_provider(
@@ -132,12 +132,13 @@ def release_full_environment(etos: ETOS, jsontas: JsonTas, suite_id: str) -> tup
     # references to the last log files created. This is to ensure that
     # etos-client has enough time to find and download them.
     time.sleep(30)
-    for suite, metadata in registry.testrun.join("suite").read_all():
+    # Iterating over all keys "below" the suite key to find all sub suites.
+    for value, metadata in registry.testrun.join("suite").read_all():
         key = metadata.get("key", b"").decode()
-        if re.match(REGEX, key) is None:
+        if re.match(SUBSUITE_REGEX, key) is None:
             continue
         try:
-            sub_suite = json.loads(suite)
+            sub_suite = json.loads(value)
             failure = release_environment(etos, jsontas, registry, sub_suite)
         except json.JSONDecodeError as exception:
             failure = exception
