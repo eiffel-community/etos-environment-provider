@@ -28,7 +28,7 @@ from requests.auth import HTTPBasicAuth, HTTPDigestAuth
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import HTTPError
 
-# pylint:disable=too-many-arguments
+# pylint:disable=too-many-arguments,too-many-positional-arguments
 
 
 class LogArea:  # pylint:disable=too-few-public-methods
