@@ -16,7 +16,9 @@
 """Backend for the environment requests."""
 import json
 import time
+import sys
 import traceback
+import logging
 import re
 from typing import Optional, Union
 
@@ -26,6 +28,7 @@ from opentelemetry import trace
 
 from environment_provider.lib.database import ETCDPath
 from environment_provider.lib.registry import ProviderRegistry
+from environment_provider.lib.releaser import EnvironmentReleaser
 from execution_space_provider import ExecutionSpaceProvider
 from execution_space_provider.execution_space import ExecutionSpace
 from iut_provider import IutProvider
@@ -71,16 +74,12 @@ def release_environment(
     """
     etos.config.set("SUITE_ID", sub_suite.get("suite_id"))
     iut = sub_suite.get("iut")
-    iut_ruleset = provider_registry.get_iut_provider_by_id(iut.get("provider_id")).get("iut")
+    iut_ruleset = provider_registry.get_iut_provider().get("iut")
     executor = sub_suite.get("executor")
-    executor_ruleset = provider_registry.get_execution_space_provider_by_id(
-        executor.get("provider_id")
-    ).get("execution_space")
+    executor_ruleset = provider_registry.get_execution_space_provider().get("execution_space")
 
     log_area = sub_suite.get("log_area")
-    log_area_ruleset = provider_registry.get_log_area_provider_by_id(
-        log_area.get("provider_id")
-    ).get("log")
+    log_area_ruleset = provider_registry.get_log_area_provider().get("log")
 
     failure = None
 
@@ -151,3 +150,29 @@ def release_full_environment(etos: ETOS, jsontas: JsonTas, suite_id: str) -> tup
             traceback.format_exception(failure, value=failure, tb=failure.__traceback__)
         )
     return True, ""
+
+
+def run(environment_id: str):
+    """Run is an entrypoint for releasing environments."""
+    logformat = "[%(asctime)s] %(levelname)s:%(message)s"
+    logging.basicConfig(
+        level=logging.INFO, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    try:
+        releaser = EnvironmentReleaser()
+        releaser.run(environment_id)
+        result = {"conclusion": "Successful", "description": "Successfully released an environment"}
+        with open("/dev/termination-log", "w", encoding="utf-8") as termination_log:
+            json.dump(result, termination_log)
+    except:
+        try:
+            result = {"conclusion": "Failed", "description": traceback.format_exc()}
+            with open("/dev/termination-log", "w", encoding="utf-8") as termination_log:
+                json.dump(result, termination_log)
+        except PermissionError:
+            pass
+        raise
+
+
+if __name__ == "__main__":
+    run(sys.argv[1])

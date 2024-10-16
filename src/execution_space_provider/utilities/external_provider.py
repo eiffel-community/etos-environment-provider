@@ -147,6 +147,12 @@ class ExternalProvider:
                 if response.status_code == requests.codes["no_content"]:
                     return
                 response = response.json()
+                if isinstance(response, str):
+                    exc = ExecutionSpaceCheckinFailed(
+                        f"Unable to check in {execution_spaces} ({response})"
+                    )
+                    self._record_exception(exc)
+                    raise exc
                 if response.get("error") is not None:
                     exc = ExecutionSpaceCheckinFailed(
                         f"Unable to check in {execution_spaces} " f"({response.get('error')})"
@@ -189,7 +195,7 @@ class ExternalProvider:
         etos_rabbitmq_password = etos_rabbitmq.get("password", "")
         if os.getenv("ETOS_ENCRYPTION_KEY") is not None:
             rabbitmq_password = encrypt(
-                rabbitmq_password.encode(), os.getenv("ETOS_ENCRYPTION_KEY")
+                rabbitmq_password.encode(), os.getenv("ETOS_ENCRYPTION_KEY", "")
             )
             etos_rabbitmq_password = encrypt(
                 etos_rabbitmq_password.encode(), os.getenv("ETOS_ENCRYPTION_KEY", "")
@@ -223,16 +229,16 @@ class ExternalProvider:
                 ),
             },
             "artifact_id": self.dataset.get("artifact_id"),
-            "artifact_created": self.dataset.get("artifact_created"),
-            "artifact_published": self.dataset.get("artifact_published"),
-            "tercc": self.dataset.get("tercc"),
+            "artifact_created": self.dataset.get("artifact_created") or {},
+            "artifact_published": self.dataset.get("artifact_published") or {},
+            "tercc": self.dataset.get("tercc") or {},
             "dataset": self.dataset.get("dataset"),
             "context": self.dataset.get("context"),
         }
         host = self.ruleset.get("start", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
         TraceContextTextMapPropagator().inject(headers)
-        span = opentelemetry.trace.get_current_span()
+        span = opentelemetry.trace.get_current_span()  # type:ignore
         span.set_attribute(SpanAttributes.HTTP_HOST, host)
         span.set_attribute("http.request.body", json.dumps(data))
         for header, value in headers.items():

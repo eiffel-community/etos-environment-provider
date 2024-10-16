@@ -18,8 +18,10 @@ import logging
 import unittest
 
 from etos_lib import ETOS
+from etos_lib.kubernetes.schemas.environment_request import Splitter as SplitterSchema
 
 from environment_provider.splitter.split import Splitter
+from iut_provider.iut import Iut
 
 
 class TestSplitter(unittest.TestCase):
@@ -37,7 +39,7 @@ class TestSplitter(unittest.TestCase):
             1. Assign IUTs to the provided test runners.
             2. Verify that no test runner get 0 assigned IUTs.
         """
-        iuts = ["iut1", "iut2"]
+        iuts = [Iut(name="iut1"), Iut(name="iut2")]
         test_runners = {
             "runner1": {"iuts": {}, "unsplit_recipes": [1]},
             "runner2": {"iuts": {}, "unsplit_recipes": [2, 3, 4, 5]},
@@ -48,7 +50,7 @@ class TestSplitter(unittest.TestCase):
         etos.config.set("NUMBER_OF_IUTS", len(iuts))
 
         self.logger.info("STEP: Assign IUTs to the provided test runners.")
-        _ = Splitter(etos, {}).assign_iuts(test_runners, iuts)
+        _ = Splitter(etos, SplitterSchema(tests=[])).assign_iuts(test_runners, iuts)
 
         self.logger.info("STEP: Verify that no test runner get 0 assigned IUTs.")
         for test_runner in test_runners.values():

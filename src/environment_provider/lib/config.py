@@ -15,37 +15,50 @@
 # limitations under the License.
 """ETOS Environment Provider configuration module."""
 import logging
-import os
 import time
-from typing import Iterator, Union
+import json
+import os
+from typing import Optional
 
 from etos_lib import ETOS
-from packageurl import PackageURL
+from etos_lib.kubernetes.schemas.testrun import Suite
+from etos_lib.kubernetes.schemas.environment_request import (
+    EnvironmentRequest as EnvironmentRequestSchema,
+    EnvironmentRequestSpec,
+    EnvironmentProviders,
+    Splitter,
+)
+from etos_lib.kubernetes import Kubernetes, EnvironmentRequest
+from etos_lib.kubernetes.schemas.common import Metadata
+from jsontas.jsontas import JsonTas
+from environment_provider.lib.registry import ProviderRegistry
 
-from .graphql import request_activity_triggered, request_artifact_published, request_tercc
+from .graphql import request_activity_triggered, request_artifact_created
 
 
 class Config:  # pylint:disable=too-many-instance-attributes
     """Environment provider configuration."""
 
     logger = logging.getLogger("Config")
-    __test_suite = None
-    generated = False
-    artifact_created = None
-    artifact_published = None
-    activity_triggered = None
-    tercc = None
+    __request = None
+    __activity_triggered = None
 
-    def __init__(self, etos: ETOS, tercc_id: str) -> None:
+    def __init__(self, etos: ETOS, ids: Optional[list[str]] = None) -> None:
         """Initialize with ETOS library and automatically load the config.
 
         :param etos: ETOS library instance.
-        :param tercc_id: ID of test execution recipe.
         """
+        self.kubernetes = Kubernetes()
         self.etos = etos
+        self.ids = ids
         self.load_config()
-        self.tercc_id = tercc_id
-        self.__generate()
+
+    @property
+    def etos_controller(self) -> bool:
+        """Whether or not the environment provider is running as a part of the ETOS controller."""
+        request = EnvironmentRequest(self.kubernetes)
+        request_name = os.getenv("REQUEST")
+        return request_name is not None and request.exists(request_name)
 
     def load_config(self) -> None:
         """Load config from environment variables."""
@@ -67,83 +80,61 @@ class Config:  # pylint:disable=too-many-instance-attributes
                     value = float(value)
                 self.etos.config.set(key.replace("ENVIRONMENT_PROVIDER_", ""), value)
 
-    def __search_for_node_typename(
-        self, response: dict, *nodes: list[str], key: str = "node"
-    ) -> Iterator[tuple[str, dict]]:
-        """Search for a graphql node by __typename.
-
-        :param response: Response to search through.
-        :param nodes: Nodes to search for.
-        :param key: Name of the node key.
-        :return: Iterator
-        """
-        for _, node in self.etos.utils.search(response, key):
-            if isinstance(node, dict) and node.get("__typename") in nodes:
-                yield node.get("__typename"), node
-
-    def __get_node(self, response: dict, node: str, key: str) -> tuple[str, dict]:
-        """Get a single node from graphql response.
-
-        :param response: Response to search through.
-        :param node: Node to search for.
-        :param key: Name of the node key.
-        :return: Tuple of node name(str) and node data(dict)
-        """
-        try:
-            node_name, node = next(self.__search_for_node_typename(response, node, key=key))
-            node = node.copy()
-            try:
-                node.pop("reverse")
-            except KeyError:
-                pass
-            return node_name, node
-        except StopIteration:
-            return "", {}
-
-    def _validate_event_data(self) -> bool:
-        """Validate that the event data required for environment provider is set.
-
-        :return: Whether event data is set or not.
-        """
-        try:
-            assert self.tercc is not None
-            assert self.artifact_created is not None
-            assert self.activity_triggered is not None
-            return True
-        except AssertionError:
-            return False
-
-    def __generate(self) -> None:
-        """Generate the event data required for the environment provider."""
-        if self.generated is False:
-            self.logger.info("Generate event data from event storage.")
-            timeout = time.time() + self.etos.config.get("EVENT_DATA_TIMEOUT")
-            while not self._validate_event_data():
-                self.logger.info("Waiting for event data.")
-                if time.time() > timeout:
-                    self.logger.error("Timeout reached. Exiting.")
-                    return None
-
-                try:
-                    response = request_tercc(self.etos, self.tercc_id)
-                    node = response["testExecutionRecipeCollectionCreated"]["edges"][0]["node"]
-                    node = node.copy()
-                    node.pop("links")
-                    self.tercc = node
-                    _, self.artifact_created = self.__get_node(response, "ArtifactCreated", "links")
-
-                    response = request_activity_triggered(self.etos, self.tercc_id)
-                    self.activity_triggered = response["activityTriggered"]["edges"][0]["node"]
-
-                    response = request_artifact_published(self.etos, self.artifact_id)
-                    # ArtifactPublished is not required and can be None.
-                    if response:
-                        self.artifact_published = response["artifactPublished"]["edges"][0]["node"]
-                except:  # noqa, pylint:disable=bare-except
-                    pass
-                time.sleep(1)
-            self.generated = True
+    def __wait_for_activity(self) -> Optional[dict]:
+        """Wait for activity triggered event."""
+        self.logger.info(
+            "Waiting for an activity triggered event %ds",
+            self.etos.config.get("EVENT_DATA_TIMEOUT"),
+        )
+        timeout = time.time() + self.etos.config.get("EVENT_DATA_TIMEOUT")  # type: ignore
+        while time.time() <= timeout:
+            time.sleep(1)
+            # This selects an index from the requests list. This is because of how the
+            # current way of running the environment provider works. Whereas the new controller
+            # based way of running will create a request per test suite, the current way
+            # will start the environment provider once for all test suites. We will create
+            # requests per test suite in this config, but they will hold mostly the same
+            # information, such as the identifier being the same on all requests.
+            testrun_id = self.requests[0].spec.identifier
+            self.logger.info("Testrun ID is %s", testrun_id)
+            response = request_activity_triggered(self.etos, testrun_id)
+            self.logger.info("Response from GraphQL query: %s", response)
+            if response is None:
+                self.logger.info("No response from event repository yet, retrying")
+                continue
+            edges = response.get("activityTriggered", {}).get("edges", [])
+            self.logger.info("Activity triggered edges found: %s", edges)
+            if len(edges) == 0:
+                self.logger.info("No activity triggered found yet, retrying")
+                continue
+            return edges[0]["node"]
+        self.logger.info(
+            "Activity triggered event not found after %ds",
+            self.etos.config.get("EVENT_DATA_TIMEOUT"),
+        )
         return None
+
+    # TODO: The requests method shall not return a list in the future, this is just to
+    # keep the changes backwards compatible.
+    @property
+    def requests(self) -> list[EnvironmentRequestSchema]:
+        """Request returns the environment request, either from Eiffel TERCC or environment."""
+        if self.__request is None:
+            if self.etos_controller:
+                request_client = EnvironmentRequest(self.kubernetes)
+                request_name = os.getenv("REQUEST")
+                assert request_name is not None, "Environment variable REQUEST must be set!"
+                self.__request = [
+                    EnvironmentRequestSchema.model_validate(
+                        request_client.get(request_name).to_dict()  # type: ignore
+                    )
+                ]
+            else:
+                # Whenever the environment provider is run as a part of the suite runner,
+                # this variable is set.
+                tercc = json.loads(os.getenv("TERCC", "{}"))
+                self.__request = self.__request_from_tercc(tercc)
+        return self.__request
 
     @property
     def context(self) -> str:
@@ -151,55 +142,79 @@ class Config:  # pylint:disable=too-many-instance-attributes
 
         :return: Activity Triggered ID
         """
+        if self.__activity_triggered is None:
+            self.__activity_triggered = self.__wait_for_activity()
+            assert (
+                self.__activity_triggered is not None
+            ), "ActivityTriggered must exist for the environment provider"
         try:
-            return self.activity_triggered["meta"]["id"]
+            return self.__activity_triggered["meta"]["id"]
         except KeyError:
             return ""
 
-    @property
-    def artifact_id(self) -> str:
-        """Get artifact ID.
+    def __request_from_tercc(self, tercc: dict) -> list[EnvironmentRequestSchema]:
+        assert (
+            self.ids is not None
+        ), "Suite runner IDs must be provided when running outside of controller"
+        requests = []
+        response = request_artifact_created(self.etos, tercc["links"][0]["target"])
+        assert response is not None, "ArtifactCreated must exist for the environment provider"
+        artifact = response["artifactCreated"]["edges"][0]["node"]
 
-        :return: Artifact ID
-        """
-        try:
-            return self.artifact_created["meta"]["id"]
-        except KeyError:
-            return ""
+        test_suites = self.__test_suite(tercc)
 
-    @property
-    def identity(self) -> Union[PackageURL, str]:
-        """Get artifact identity.
+        registry = ProviderRegistry(self.etos, JsonTas(), tercc["meta"]["id"])
 
-        :return: Artifact identity.
-        """
-        try:
-            return PackageURL.from_string(self.artifact_created["data"]["identity"])
-        except KeyError:
-            return ""
+        datasets = registry.dataset()
+        if isinstance(datasets, list):
+            assert len(datasets) == len(
+                test_suites
+            ), "If multiple datasets are provided it must correspond with number of test suites"
+        else:
+            datasets = [datasets] * len(test_suites)
 
-    @property
-    def test_suite(self) -> list[dict]:
+        for suite in test_suites:
+            requests.append(
+                EnvironmentRequestSchema(
+                    metadata=Metadata(),
+                    spec=EnvironmentRequestSpec(
+                        id=self.ids.pop(0),
+                        name=suite.get("name"),
+                        identifier=tercc["meta"]["id"],
+                        artifact=artifact["meta"]["id"],
+                        identity=artifact["data"]["identity"],
+                        minimumAmount=1,
+                        maximumAmount=10,  # TODO: Ignored in environment_provider.py
+                        image="N/A",
+                        imagePullPolicy="N/A",
+                        splitter=Splitter(tests=Suite.tests_from_recipes(suite.get("recipes", []))),
+                        dataset=datasets.pop(0),
+                        providers=EnvironmentProviders(),
+                    ),
+                )
+            )
+        return requests
+
+    def __test_suite(self, tercc: dict) -> list[dict]:
         """Download and return test batches.
 
         :return: Batches.
         """
-        if self.__test_suite is None:
-            try:
-                batch = self.tercc.get("data", {}).get("batches")
-                batch_uri = self.tercc.get("data", {}).get("batchesUri")
-                if batch is not None and batch_uri is not None:
-                    raise ValueError("Only one of 'batches' or 'batchesUri' shall be set")
-                if batch is not None:
-                    self.__test_suite = batch
-                elif batch_uri is not None:
-                    response = self.etos.http.get(
-                        batch_uri,
-                        timeout=self.etos.config.get("TEST_SUITE_TIMEOUT"),
-                        headers={"Accept": "application/json"},
-                    )
-                    response.raise_for_status()
-                    self.__test_suite = response.json()
-            except AttributeError:
-                pass
-        return self.__test_suite if self.__test_suite else []
+        try:
+            batch = tercc.get("data", {}).get("batches")
+            batch_uri = tercc.get("data", {}).get("batchesUri")
+            if batch is not None and batch_uri is not None:
+                raise ValueError("Only one of 'batches' or 'batchesUri' shall be set")
+            if batch is not None:
+                return batch
+            if batch_uri is not None:
+                response = self.etos.http.get(
+                    batch_uri,
+                    timeout=self.etos.config.get("TEST_SUITE_TIMEOUT"),
+                    headers={"Accept": "application/json"},
+                )
+                response.raise_for_status()
+                return response.json()
+            return []
+        except AttributeError:
+            return []
