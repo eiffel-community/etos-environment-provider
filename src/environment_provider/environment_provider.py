@@ -87,14 +87,14 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.etos = ETOS(
             "ETOS Environment Provider", os.getenv("HOSTNAME", "Unknown"), "Environment Provider"
         )
-        self.environment_provider_config = Config(self.etos, suite_runner_ids)
+        self.kubernetes = Kubernetes()
+        self.environment_provider_config = Config(self.etos, self.kubernetes, suite_runner_ids)
 
         FORMAT_CONFIG.identifier = self.environment_provider_config.requests[0].spec.identifier
         self.suite_id = self.environment_provider_config.requests[0].spec.identifier
 
         self.logger.info("Initializing EnvironmentProvider.")
         self.tracer = opentelemetry.trace.get_tracer(__name__)  # type:ignore
-        self.kubernetes = Kubernetes()
 
         self.suite_runner_ids = suite_runner_ids
 

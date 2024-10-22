@@ -43,12 +43,12 @@ class Config:  # pylint:disable=too-many-instance-attributes
     __request = None
     __activity_triggered = None
 
-    def __init__(self, etos: ETOS, ids: Optional[list[str]] = None) -> None:
+    def __init__(self, etos: ETOS, kubernetes: Kubernetes, ids: Optional[list[str]] = None) -> None:
         """Initialize with ETOS library and automatically load the config.
 
         :param etos: ETOS library instance.
         """
-        self.kubernetes = Kubernetes()
+        self.kubernetes = kubernetes
         self.etos = etos
         self.ids = ids
         self.load_config()
