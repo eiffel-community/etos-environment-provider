@@ -37,7 +37,7 @@ from etos_lib.kubernetes.schemas import Provider as ProviderSchema
 from etos_lib.kubernetes.schemas import EnvironmentRequest as EnvironmentRequestSchema
 from jsontas.jsontas import JsonTas
 from packageurl import PackageURL
-import opentelemetry
+from opentelemetry import trace
 from opentelemetry.trace import SpanKind
 
 from execution_space_provider.execution_space import ExecutionSpace
@@ -94,7 +94,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.suite_id = self.environment_provider_config.requests[0].spec.identifier
 
         self.logger.info("Initializing EnvironmentProvider.")
-        self.tracer = opentelemetry.trace.get_tracer(__name__)  # type:ignore
+        self.tracer = trace.get_tracer(__name__)
 
         self.suite_runner_ids = suite_runner_ids
 
