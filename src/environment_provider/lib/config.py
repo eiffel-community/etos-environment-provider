@@ -20,6 +20,7 @@ import json
 import os
 from typing import Optional
 
+from urllib3.exceptions import MaxRetryError
 from etos_lib import ETOS
 from etos_lib.kubernetes.schemas.testrun import Suite
 from etos_lib.kubernetes.schemas.environment_request import (
@@ -59,9 +60,18 @@ class Config:
     @property
     def etos_controller(self) -> bool:
         """Whether or not the environment provider is running as a part of the ETOS controller."""
-        request = EnvironmentRequest(self.kubernetes)
-        request_name = os.getenv("REQUEST")
-        return request_name is not None and request.exists(request_name)
+        try:
+            request = EnvironmentRequest(self.kubernetes)
+            request_name = os.getenv("REQUEST")
+            return request_name is not None and request.exists(request_name)
+        except MaxRetryError:
+            self.logger.warning(
+                "Could not initialize EnvironmentRequest client, "
+                "assuming that the environment provider is not running "
+                "in Kubernetes or that the ETOS controller system is not "
+                "deployed in this cluster."
+            )
+            return False
 
     def load_config(self) -> None:
         """Load config from environment variables."""
