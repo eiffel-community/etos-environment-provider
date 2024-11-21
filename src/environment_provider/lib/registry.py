@@ -92,7 +92,9 @@ class ProviderRegistry:
         :return: Provider JSON or None.
         """
         if self.testrun is None:
-            self.logger.error("Could not retrieve log area provider from database")
+            self.logger.error(
+                "Could not retrieve log area provider from database, testrun is not set."
+            )
             return None
         provider = self.testrun.join("provider/log-area").read()
         if provider:
@@ -105,7 +107,7 @@ class ProviderRegistry:
         :return: Provider JSON or None.
         """
         if self.testrun is None:
-            self.logger.error("Could not retrieve IUT provider from database")
+            self.logger.error("Could not retrieve IUT provider from database, testrun is not set.")
             return None
         provider = self.testrun.join("provider/iut").read()
         if provider:
@@ -118,7 +120,9 @@ class ProviderRegistry:
         :return: Provider JSON or None.
         """
         if self.testrun is None:
-            self.logger.error("Could not retrieve execution space provider from database")
+            self.logger.error(
+                "Could not retrieve execution space provider from database, testrun is not set."
+            )
             return None
         provider = self.testrun.join("provider/execution-space").read()
         if provider:

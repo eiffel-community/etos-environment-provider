@@ -93,9 +93,6 @@ def request_artifact_created(etos: ETOS, artifact_id: str) -> Optional[dict]:
         data {
           identity
         }
-        meta {
-          id
-        }
       }
     }
   }

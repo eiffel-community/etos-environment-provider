@@ -17,6 +17,7 @@
 import logging
 from jsontas.jsontas import JsonTas
 from opentelemetry import trace
+from pydantic import ValidationError
 from etos_lib.kubernetes.schemas import Environment as EnvironmentSchema
 from etos_lib.kubernetes.schemas import Provider as ProviderSchema
 from etos_lib.kubernetes import Kubernetes, Environment, Provider
@@ -90,6 +91,12 @@ class Iut(Releaser):
         except AssertionError:
             self.logger.exception("Missing IUT provider")
             raise
+        except ValidationError:
+            self.logger.exception(
+                "The schema of IUT provider with id %r could not be validated",
+                provider_id,
+            )
+            return
 
         self.logger.info("Initializing release of IUT %r", ruleset)
         try:
@@ -136,6 +143,12 @@ class Executor(Releaser):
         except AssertionError:
             self.logger.exception("Missing executor provider")
             raise
+        except ValidationError:
+            self.logger.exception(
+                "The schema of execution space provider with id %r could not be validated",
+                provider_id,
+            )
+            return
 
         self.logger.info("Initializing release of executor %r", ruleset)
         try:
@@ -186,6 +199,12 @@ class LogArea(Releaser):
         except AssertionError:
             self.logger.exception("Missing log area provider")
             raise
+        except ValidationError:
+            self.logger.exception(
+                "The schema of log area provider with id %r could not be validated",
+                provider_id,
+            )
+            return
 
         self.logger.info("Initializing release of log area %r", ruleset)
         try:
@@ -232,6 +251,12 @@ class EnvironmentReleaser:
             self.logger.exception(
                 "Could not find Environment with id %r in Kubernetes. "
                 "Trying to release something that's already released?",
+                environment_id,
+            )
+            return
+        except ValidationError:
+            self.logger.exception(
+                "The schema of Environment with id %r could not be validated",
                 environment_id,
             )
             return

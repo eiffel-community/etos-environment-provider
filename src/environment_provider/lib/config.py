@@ -36,7 +36,7 @@ from environment_provider.lib.registry import ProviderRegistry
 from .graphql import request_activity_triggered, request_artifact_created
 
 
-class Config:  # pylint:disable=too-many-instance-attributes
+class Config:
     """Environment provider configuration."""
 
     logger = logging.getLogger("Config")
@@ -47,6 +47,9 @@ class Config:  # pylint:disable=too-many-instance-attributes
         """Initialize with ETOS library and automatically load the config.
 
         :param etos: ETOS library instance.
+        :param kubernetes: Kubernetes client.
+        :param ids: Suite runner IDs to correlate environment requests when not running in the
+                    ETOS controller environment. Is set to None if executed by the ETOS controller.
         """
         self.kubernetes = kubernetes
         self.etos = etos
@@ -83,13 +86,13 @@ class Config:  # pylint:disable=too-many-instance-attributes
     def __wait_for_activity(self) -> Optional[dict]:
         """Wait for activity triggered event."""
         self.logger.info(
-            "Waiting for an activity triggered event %ds",
+            "Waiting for an activity triggered event - Timeout: %ds",
             self.etos.config.get("EVENT_DATA_TIMEOUT"),
         )
         timeout = time.time() + self.etos.config.get("EVENT_DATA_TIMEOUT")  # type: ignore
         while time.time() <= timeout:
             time.sleep(1)
-            # This selects an index from the requests list. This is because of how the
+            # The reason we select the first index in the list here is because of how the
             # current way of running the environment provider works. Whereas the new controller
             # based way of running will create a request per test suite, the current way
             # will start the environment provider once for all test suites. We will create
@@ -153,11 +156,13 @@ class Config:  # pylint:disable=too-many-instance-attributes
             return ""
 
     def __request_from_tercc(self, tercc: dict) -> list[EnvironmentRequestSchema]:
+        """Create an environment request schema from a TERCC."""
         assert (
             self.ids is not None
         ), "Suite runner IDs must be provided when running outside of controller"
         requests = []
-        response = request_artifact_created(self.etos, tercc["links"][0]["target"])
+        artifact_id = tercc["links"][0]["target"]
+        response = request_artifact_created(self.etos, artifact_id)
         assert response is not None, "ArtifactCreated must exist for the environment provider"
         artifact = response["artifactCreated"]["edges"][0]["node"]
 
@@ -167,9 +172,10 @@ class Config:  # pylint:disable=too-many-instance-attributes
 
         datasets = registry.dataset()
         if isinstance(datasets, list):
-            assert len(datasets) == len(
-                test_suites
-            ), "If multiple datasets are provided it must correspond with number of test suites"
+            assert len(datasets) == len(test_suites), (
+                "If multiple datasets are provided, the number of datasets must correspond "
+                "with number of test suites"
+            )
         else:
             datasets = [datasets] * len(test_suites)
 
@@ -181,7 +187,7 @@ class Config:  # pylint:disable=too-many-instance-attributes
                         id=self.ids.pop(0),
                         name=suite.get("name"),
                         identifier=tercc["meta"]["id"],
-                        artifact=artifact["meta"]["id"],
+                        artifact=artifact_id,
                         identity=artifact["data"]["identity"],
                         minimumAmount=1,
                         maximumAmount=10,  # TODO: Ignored in environment_provider.py
