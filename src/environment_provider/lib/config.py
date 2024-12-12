@@ -22,6 +22,7 @@ from typing import Optional
 
 from urllib3.exceptions import MaxRetryError
 from etos_lib import ETOS
+from etos_lib.lib.events import EiffelActivityTriggeredEvent
 from etos_lib.kubernetes.schemas.testrun import Suite
 from etos_lib.kubernetes.schemas.environment_request import (
     EnvironmentRequest as EnvironmentRequestSchema,
@@ -155,7 +156,14 @@ class Config:
 
         :return: Activity Triggered ID
         """
+        if self.etos_controller:
+            activity_triggered: Optional[EiffelActivityTriggeredEvent] = self.etos.config.get(
+                "environment_provider_context"
+            )
+            if activity_triggered is not None:
+                self.__activity_triggered = activity_triggered.json
         if self.__activity_triggered is None:
+            self.logger.info("No activity triggered yet, waiting for the event")
             self.__activity_triggered = self.__wait_for_activity()
             assert (
                 self.__activity_triggered is not None
