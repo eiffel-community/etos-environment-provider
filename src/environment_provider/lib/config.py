@@ -186,7 +186,7 @@ class Config:
 
         test_suites = self.__test_suite(tercc)
 
-        registry = ProviderRegistry(self.etos, JsonTas(), tercc["meta"]["id"])
+        registry = ProviderRegistry(self.etos, JsonTas()).with_suite_id(tercc["meta"]["id"])
 
         datasets = registry.dataset()
         if isinstance(datasets, list):

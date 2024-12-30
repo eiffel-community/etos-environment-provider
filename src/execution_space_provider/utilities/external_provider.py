@@ -204,7 +204,7 @@ class ExternalProvider:
         data = {
             "minimum_amount": minimum_amount,
             "maximum_amount": maximum_amount,
-            "identity": self.identity.to_string(),
+            "identity": self.identity.to_string() if self.identity else "", # TODO: remove if-statement
             "test_runner": self.dataset.get("test_runner"),
             "environment": {  # All environments must be string
                 "RABBITMQ_HOST": rabbitmq.get("host"),

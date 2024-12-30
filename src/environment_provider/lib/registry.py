@@ -35,31 +35,82 @@ class ProviderRegistry:
 
     logger = logging.getLogger("Registry")
 
-    def __init__(self, etos: ETOS, jsontas: JsonTas, suite_id: Optional[str]) -> None:
+    def __init__(self, etos: ETOS, jsontas: JsonTas):
         """Initialize with ETOS library, JsonTas and ETOS database.
 
         :param etos: ETOS library instance.
         :param jsontas: JSONTas instance used to evaluate JSONTas structures.
-        :param suite_id: The suite ID for an ETOS testrun. If not set, testrun operations will not
-                         work.
         """
         self.etos = etos
         self.jsontas = jsontas
-        self.testrun = ETCDPath(f"/testrun/{suite_id}")
-        if suite_id is None:
-            # Results in exceptions if trying to use testrun without suite ID set. Otherwise
-            # there's a big risk of writing data on bogus keys in the database.
-            self.testrun = None
-        self.providers = ETCDPath("/environment/provider")
         self.etos.config.set("PROVIDERS", [])
+        self.request = None
+        self.suite_id = None
+
+    def with_suite_id(self, suite_id) -> "ProviderRegistry":
+        """Initialize the provider registry with a suite id.
+
+        :param suite_id: The suite ID for an ETOS testrun. If not set, testrun operations will not work.
+        """
+        self.logger.info(f"Initializing with suite id: {suite_id}")
+        if not suite_id:
+            raise ValueError("Suite id not set!")
+        self.suite_id = suite_id
+        return self
+
+    def with_environment_request(self, request: "EnvironmentRequest") -> "ProviderRegistry":
+        """Initialize the provider registry with an environment request.
+
+        :param request: environment request.
+        """
+        self.logger.info(f"Initializing with env request: {request}")
+        if not request:
+            raise ValueError("Environment request not set!")
+        self.request = request
+        self.suite_id = self.request.spec.identifier
+        return self
 
     def is_configured(self) -> bool:
         """Check that there is a configuration for the given suite ID.
 
         :return: Whether or not a configuration exists for the suite ID.
         """
-        configuration = self.testrun.join("provider").read_all()
-        return bool(configuration)
+        if self.suite_id:
+            key = f"/testrun/{self.suite_id}/provider"
+            self.logger.info(f"Reading etcd key: {key}") # TODO: remove
+            return bool(ETCDPath(key).read_all())
+        else:
+            base_key = f"/environment/provider"
+            # check that at least one provider of each type is registered:
+            for _key in ("execution-space", "iut", "log-area"):
+                key = f"{base_key}/{_key}/default" # TODO: fix
+                self.logger.info(f"Reading etcd key: {key}") # TODO: remove
+                if not bool(ETCDPath(key).read_all()):
+                    self.logger.info(f"Reading etcd key {key} returned False") # TODO: remove
+                    return False
+        return True
+
+    def _get_provider(self, provider_type):
+        if provider_type not in ("log-area", "execution-space", "iut"):
+            raise ValueError(f"Unknown provider type: {provider_type}")
+        if self.request.spec.identifier is not None:
+            key = f"/testrun/{self.request.spec.identifier}/provider/{provider_type}"
+            return ETCDPath(key).read()
+
+        providers = self.request.spec.providers
+        prefix = f"/environment/provider/{provider_type}"
+        key = ""
+        if provider_type == "execution-space":
+            key =  f"{prefix}/{providers.executionSpace.id}"
+        elif provider_type == "iut":
+            key = f"{prefix}/{providers.iut.id}"
+        elif provider_type == "log-area":
+            key = f"{prefix}/{providers.logArea.id}"
+
+        # TODO: fix matching of provider ids from environment request to the registered providers
+        key = f"{prefix}/default"
+        provider = ETCDPath(key).read()
+        return provider
 
     def wait_for_configuration(self) -> bool:
         """Wait for ProviderRegistry to become configured.
@@ -91,12 +142,7 @@ class ProviderRegistry:
 
         :return: Provider JSON or None.
         """
-        if self.testrun is None:
-            self.logger.error(
-                "Could not retrieve log area provider from database, testrun is not set."
-            )
-            return None
-        provider = self.testrun.join("provider/log-area").read()
+        provider = self._get_provider("log-area")
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
@@ -106,10 +152,7 @@ class ProviderRegistry:
 
         :return: Provider JSON or None.
         """
-        if self.testrun is None:
-            self.logger.error("Could not retrieve IUT provider from database, testrun is not set.")
-            return None
-        provider = self.testrun.join("provider/iut").read()
+        provider = self._get_provider("iut")
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
@@ -119,12 +162,7 @@ class ProviderRegistry:
 
         :return: Provider JSON or None.
         """
-        if self.testrun is None:
-            self.logger.error(
-                "Could not retrieve execution space provider from database, testrun is not set."
-            )
-            return None
-        provider = self.testrun.join("provider/execution-space").read()
+        provider = self._get_provider("execution-space")
         if provider:
             return json.loads(provider, object_pairs_hook=OrderedDict)
         return None
@@ -134,7 +172,7 @@ class ProviderRegistry:
 
         :return: Execution space provider object.
         """
-        provider_json = self.testrun.join("provider/execution-space").read()
+        provider_json = self._get_provider("execution-space")
         if provider_json:
             provider = ExecutionSpaceProvider(
                 self.etos,
@@ -150,7 +188,7 @@ class ProviderRegistry:
 
         :return: IUT provider object.
         """
-        provider_json = self.testrun.join("provider/iut").read()
+        provider_json = self._get_provider("iut")
         if provider_json:
             provider = IutProvider(
                 self.etos,
@@ -166,7 +204,7 @@ class ProviderRegistry:
 
         :return: Log area provider object.
         """
-        provider_json = self.testrun.join("provider/log-area").read()
+        provider_json = self._get_provider("log-area")
         if provider_json:
             provider = LogAreaProvider(
                 self.etos,
@@ -182,7 +220,10 @@ class ProviderRegistry:
 
         :return: Dataset JSON data.
         """
-        dataset = self.testrun.join("provider/dataset").read()
+        if self.request.spec.identifier:
+            dataset = ETCDPath(f"/testrun/{self.request.spec.identifier}/provider/dataset").read()
+        else:
+            dataset = self.jsontas.dataset  # TODO: fix
         if dataset:
             return json.loads(dataset)
         return None

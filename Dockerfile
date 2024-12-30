@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir build && python3 -m build
 
 FROM python:3.9-slim-bookworm
 
-COPY --from=build /src/dist/*.whl /tmp
+COPY --from=build /src/dist/*.whl /tmp/
 # hadolint ignore=DL3013
 
 RUN pip install --no-cache-dir /tmp/*.whl && groupadd -r etos && useradd -r -m -s /bin/false -g etos etos

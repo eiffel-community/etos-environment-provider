@@ -123,7 +123,7 @@ def release_full_environment(etos: ETOS, jsontas: JsonTas, suite_id: str) -> tup
     :return: Release status and a message if status is False.
     """
     failure = None
-    registry = ProviderRegistry(etos, jsontas, suite_id)
+    registry = ProviderRegistry(etos, jsontas).with_suite_id(suite_id)
     # TODO: Remove the sleeping when we can communicate the log urls to the
     # etos-client using internal messaging via SSE.
     #

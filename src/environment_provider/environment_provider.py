@@ -78,6 +78,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
     log_area_provider = None
     execution_space_provider = None
     testrun = None
+    request = None
+    registry = None
 
     def __init__(self, suite_runner_ids: Optional[list[str]] = None) -> None:
         """Initialize ETOS, dataset, provider registry and splitter.
@@ -108,7 +110,6 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         self.dataset.add("uuid_generate", UuidGenerate)
         self.dataset.add("join", Join)
         self.dataset.add("encrypt", Encrypt)
-        self.registry = ProviderRegistry(self.etos, self.jsontas, self.suite_id)
 
     def new_dataset(self, request: EnvironmentRequestSchema) -> None:
         """Load a new dataset.
@@ -139,8 +140,9 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 "EnvironmentProvider before requesting an "
                 "environment."
             )
+        self.request = request
         self.logger.info("Registry is configured.")
-        self.etos.config.set("SUITE_ID", request.spec.identifier)
+        self.etos.config.set("SUITE_ID", self.request.spec.identifier)
 
         self.etos.config.set("EVENT_DATA_TIMEOUT", int(os.getenv("ETOS_EVENT_DATA_TIMEOUT", "10")))
         self.etos.config.set(
@@ -212,8 +214,10 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             {"name": sub_suite.get("name"), "uri": url},
         )
 
-        suite = self.registry.testrun.join(f"suite/{sub_suite['test_suite_started_id']}")
-        suite.join(f"/subsuite/{event_id}/suite").write(json.dumps(sub_suite))
+        if self.request.spec.identifier is not None:
+            db = self.registry.db.join(f"/testrun/{self.request.spec.identifier}")
+            suite = db.join(f"suite/{sub_suite['test_suite_started_id']}")
+            suite.join(f"/subsuite/{event_id}/suite").write(json.dumps(sub_suite))
 
     def upload_sub_suite(self, sub_suite: dict) -> tuple[str, dict]:
         """Upload sub suite to log area.
@@ -366,7 +370,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         """
         # pylint:disable=too-many-statements
         self.logger.info("Checkout environment for %r", request.spec.name, extra={"user_log": True})
-        self.new_dataset(request)
+        self.request = request
+        self.new_dataset(self.request)
         splitter = Splitter(self.etos, request.spec.splitter)
 
         # TODO: This is a hack to make the controller environment work without too many changes
@@ -572,27 +577,36 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
 
     def _configure_iut(self, provider_spec: dict):
         """Configure iut provider for a testrun."""
-        db = self.registry.testrun.join("provider/iut")  # type: ignore
-        self._configure_provider(db, provider_spec, "iut")
+        if self.request.spec.identifier is not None:
+            # this database key needs to be added only when the environment is bound to a specific testrun
+            db = self.registry.db.join(f"/testrun/{self.request.spec.identifier}/provider/iut")
+            self._configure_provider(db, provider_spec, "iut")
 
     def _configure_log_area(self, provider_spec: dict):
         """Configure log area provider for a testrun."""
-        db = self.registry.testrun.join("provider/log-area")  # type: ignore
-        self._configure_provider(db, provider_spec, "log")
+        if self.request.spec.identifier is not None:
+            # this database key needs to be added only when the environment is bound to a specific testrun
+            db = self.registry.db.join(f"/testrun/{self.request.spec.identifier}/provider/log-area")
+            self._configure_provider(db, provider_spec, "log")
 
     def _configure_execution_space(self, provider_spec: dict):
         """Configure execution space provider for a testrun."""
-        db = self.registry.testrun.join("provider/execution-space")  # type: ignore
-        self._configure_provider(db, provider_spec, "execution_space")
+        if self.request.spec.identifier is not None:
+            # this database key needs to be added only when the environment is bound to a specific testrun
+            db = self.registry.db.join(f"/testrun/{self.request.spec.identifier}/provider/execution-space")
+            self._configure_provider(db, provider_spec, "execution_space")
 
     def _configure_dataset(self, datasets: list[dict]):
         """Configure dataset for a testrun."""
-        db = self.registry.testrun.join("provider/dataset")  # type: ignore
-        db.write(json.dumps(datasets))
+        if self.request.spec.identifier is not None:
+            db = self.registry.db.join(f"/testrun/{self.request.spec.identifier}/provider/dataset")
+            db.write(json.dumps(datasets))
 
     def configure_environment_provider(self, request: EnvironmentRequestSchema):
         """Configure the environment provider if run as a part of the ETOS kubernetes controller."""
-        self.logger.info("Running in an ETOS cluster - Configuring testrun")
+        self.logger.info("Running in an ETOS cluster - Configuring environment provider")
+        self.request = request
+        self.registry = ProviderRegistry(self.etos, self.jsontas).with_environment_request(self.request)
         provider_client = Provider(self.kubernetes)
 
         iut = provider_client.get(request.spec.providers.iut.id).to_dict()  # type: ignore
