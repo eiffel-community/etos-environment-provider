@@ -18,7 +18,7 @@ spec:
       serviceAccountName: etos-environment-provider
       containers:
         - name: etos-environment-provider
-          image: registry.nordix.org/eiffel/etos-environment-provider:191ed4e7
+          image: ghcr.io/eiffel-community/etos-environment-provider:191ed4e7
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
