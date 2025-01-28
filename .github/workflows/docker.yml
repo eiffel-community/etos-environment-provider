@@ -7,6 +7,10 @@ on:
       - closed
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build_docker:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}
