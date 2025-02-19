@@ -107,7 +107,7 @@ class ExternalProvider:
         """
         end = self.etos.config.get("WAIT_FOR_IUT_TIMEOUT")
         if end is None:
-            end = os.getenv("ENVIRONMENT_PROVIDER_WAIT_FOR_IUT_TIMEOUT")
+            end = os.getenv("ETOS_WAIT_FOR_IUT_TIMEOUT")
         if end is None:
             end = 3600
         end = int(end)
