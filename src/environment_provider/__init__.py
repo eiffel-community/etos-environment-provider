@@ -24,7 +24,6 @@ except PackageNotFoundError:
     VERSION = "Unknown"
 
 DEV = os.getenv("DEV", "false").lower() == "true"
-ENVIRONMENT = "development" if DEV else "production"
 
 # JSONTas would print all passwords as they are encrypted,
 # which is not safe, so we disable propagation on the loggers.
