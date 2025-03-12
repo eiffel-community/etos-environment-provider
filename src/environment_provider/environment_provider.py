@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS Environment Provider module."""
+
 import sys
 import json
 import logging
@@ -603,8 +604,8 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         execution_space = provider_client.get(provider_id).to_dict()  # type: ignore
         self._configure_execution_space(execution_space)  # type: ignore
 
-    def run(self) -> dict:
-        """Run the environment provider task.
+    def get_environment(self) -> dict:
+        """Run the environment provider.
 
         See: `_run`
 
@@ -624,11 +625,26 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             self.logger.error(
                 "Failed creating environment for test. %r", exception, extra={"user_log": True}
             )
-            return {"error": str(exception), "details": traceback.format_exc()}
+            raise
         finally:
             if self.etos.publisher is not None and not self.etos.debug.disable_sending_events:
                 self.etos.publisher.wait_for_unpublished_events()
                 self.etos.publisher.stop()
+
+    def run(self) -> dict:
+        """Run the environment provider task.
+
+        See: `_run`
+
+        This method catches all exceptions and returns a result dict instead.
+
+        :return: Test suite JSON with assigned IUTs, execution spaces and log areas.
+        :rtype: dict
+        """
+        try:
+            return self.get_environment()
+        except Exception as exception:  # pylint:disable=broad-except
+            return {"error": str(exception), "details": traceback.format_exc()}
 
 
 def get_environment():
@@ -639,7 +655,7 @@ def get_environment():
     )
     logging.getLogger("gql").setLevel(logging.WARNING)
     try:
-        status = EnvironmentProvider().run()
+        status = EnvironmentProvider().get_environment()
         if status.get("error") is not None:
             raise EnvironmentProviderError(status.get("error"))
         result = {
