@@ -33,12 +33,14 @@ from requests.exceptions import HTTPError
 # pylint:disable=too-many-arguments
 # pylint:disable=too-many-positional-arguments
 
-max_retries = 10  # With 1 as backoff_factor, the total wait time between retries will be 1023 seconds
+MAX_RETRIES = (
+    10  # With 1 as backoff_factor, the total wait time between retries will be 1023 seconds
+)
 HTTP_RETRY_PARAMETERS = Retry(
     total=None,
-    read=max_retries,
-    connect=max_retries,
-    status=max_retries,
+    read=MAX_RETRIES,
+    connect=MAX_RETRIES,
+    status=MAX_RETRIES,
     backoff_factor=1,
     other=0,
     status_forcelist=list(Retry.RETRY_AFTER_STATUS_CODES),
