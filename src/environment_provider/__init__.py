@@ -39,6 +39,7 @@ except PackageNotFoundError:
     VERSION = "Unknown"
 
 DEV = os.getenv("DEV", "false").lower() == "true"
+os.environ["ETOS_ENABLE_SENDING_LOGS"] = "false"
 LOGGER = logging.getLogger(__name__)
 
 IN_CONTROLLER_ENVIRONMENT = bool(os.getenv("REQUEST"))
@@ -63,8 +64,6 @@ if IN_CONTROLLER_ENVIRONMENT and os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
     PROVIDER.add_span_processor(PROCESSOR)
     trace.set_tracer_provider(PROVIDER)
     setup_logging("ETOS Environment Provider", VERSION, otel_resource=OTEL_RESOURCE)
-elif IN_CONTROLLER_ENVIRONMENT:
-    setup_logging("ETOS Environment Provider", VERSION)
 
 # JSONTas would print all passwords as they are encrypted,
 # which is not safe, so we disable propagation on the loggers.
