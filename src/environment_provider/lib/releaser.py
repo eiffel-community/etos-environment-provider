@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Releaser of environments."""
+import os
 import logging
 from jsontas.jsontas import JsonTas
 from opentelemetry import trace
@@ -31,6 +32,7 @@ from iut_provider.iut import Iut as IutSpec
 from log_area_provider import LogAreaProvider
 from log_area_provider.exceptions import LogAreaCheckinFailed
 from log_area_provider.log_area import LogArea as LogAreaSpec
+from .otel_tracing import get_current_context
 
 TRACER = trace.get_tracer(__name__)
 
@@ -233,13 +235,17 @@ class EnvironmentReleaser:
 
     logger = logging.getLogger(__name__)
 
+    def __init__(self):
+        """Initialize the opentelemetry tracer."""
+        self.tracer = trace.get_tracer(__name__)
+
     def environment(self, environment_id: str) -> EnvironmentSchema:
         """Environment gets an environment from kubernetes with environment_id as name."""
         client = Environment(Kubernetes())
         environment = client.get(environment_id).to_dict()  # type: ignore
         return EnvironmentSchema.model_validate(environment)
 
-    def run(self, environment_id: str):
+    def _run(self, environment_id: str):
         """Run the releaser. It will check which type of environment and release it."""
         self.logger.info("Running the environment releaser")
         etos = ETOS("", "", "")
@@ -261,7 +267,11 @@ class EnvironmentReleaser:
             )
             return
         etos.config.set("SUITE_ID", environment.spec.suite_id)
-        tasks = [Iut(etos, environment), LogArea(etos, environment), Executor(etos, environment)]
+        tasks = [
+            Iut(etos, environment),
+            LogArea(etos, environment),
+            Executor(etos, environment),
+        ]
 
         exceptions = []
         for task in tasks:
@@ -273,3 +283,18 @@ class EnvironmentReleaser:
                 exceptions.append(exception)
         if exceptions:
             raise ReleaseError("Some or all release tasks failed")
+
+    def _run_with_span(self, environment_id: str):
+        """Run the release with an attached span."""
+        with trace.get_tracer(__name__).start_as_current_span(
+            "release_environment", context=get_current_context()
+        ):
+            self._run(environment_id)
+
+    def run(self, environment_id: str):
+        """Run the releaser. It will check which type of environment and release it."""
+        # The REQUEST environment variable is set by the environment_controller.
+        if os.getenv("REQUEST") is not None:
+            self._run_with_span(environment_id)
+        else:
+            self._run(environment_id)
