@@ -14,9 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS environment provider module."""
+
 import logging
 import os
 from importlib.metadata import PackageNotFoundError, version
+
+from etos_lib.logging.logger import setup_logging
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import (
+    SERVICE_NAME,
+    SERVICE_VERSION,
+    OTELResourceDetector,
+    ProcessResourceDetector,
+    Resource,
+    get_aggregated_resources,
+)
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 try:
     VERSION = version("environment_provider")
@@ -24,6 +39,32 @@ except PackageNotFoundError:
     VERSION = "Unknown"
 
 DEV = os.getenv("DEV", "false").lower() == "true"
+LOGGER = logging.getLogger(__name__)
+
+IN_CONTROLLER_ENVIRONMENT = bool(os.getenv("REQUEST"))
+if IN_CONTROLLER_ENVIRONMENT and os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+    OTEL_RESOURCE = Resource.create(
+        {
+            SERVICE_NAME: "etos-environment-provider",
+            SERVICE_VERSION: VERSION,
+        },
+    )
+
+    OTEL_RESOURCE = get_aggregated_resources(
+        [OTELResourceDetector(), ProcessResourceDetector()],
+    ).merge(OTEL_RESOURCE)
+    LOGGER.info(
+        "Using OpenTelemetry collector: %s",
+        os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+    )
+    PROVIDER = TracerProvider(resource=OTEL_RESOURCE)
+    EXPORTER = OTLPSpanExporter()
+    PROCESSOR = BatchSpanProcessor(EXPORTER)
+    PROVIDER.add_span_processor(PROCESSOR)
+    trace.set_tracer_provider(PROVIDER)
+    setup_logging("ETOS Environment Provider", VERSION, otel_resource=OTEL_RESOURCE)
+elif IN_CONTROLLER_ENVIRONMENT:
+    setup_logging("ETOS Environment Provider", VERSION)
 
 # JSONTas would print all passwords as they are encrypted,
 # which is not safe, so we disable propagation on the loggers.
