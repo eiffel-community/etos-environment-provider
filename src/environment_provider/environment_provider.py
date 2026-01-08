@@ -32,7 +32,11 @@ from etos_lib.logging.logger import FORMAT_CONFIG
 from etos_lib.opentelemetry.semconv import Attributes as SemConvAttributes
 from etos_lib.kubernetes import Kubernetes, Environment, Provider
 from etos_lib.kubernetes.schemas.common import OwnerReference
-from etos_lib.kubernetes.schemas import Environment as EnvironmentSchema, EnvironmentSpec, Metadata
+from etos_lib.kubernetes.schemas import (
+    Environment as EnvironmentSchema,
+    EnvironmentSpec,
+    Metadata,
+)
 from etos_lib.kubernetes.schemas import Test
 from etos_lib.kubernetes.schemas import Provider as ProviderSchema
 from etos_lib.kubernetes.schemas import EnvironmentRequest as EnvironmentRequestSchema
@@ -45,6 +49,7 @@ from execution_space_provider.execution_space import ExecutionSpace
 from log_area_provider.log_area import LogArea
 
 from .lib.config import Config
+from .lib.otel_tracing import get_current_context
 from .lib.encrypt import Encrypt
 from .lib.graphql import request_main_suite
 from .lib.join import Join
@@ -86,7 +91,9 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         :param suite_runner_ids: IDs from the suite runner to correlate sub suites.
         """
         self.etos = ETOS(
-            "ETOS Environment Provider", os.getenv("HOSTNAME", "Unknown"), "Environment Provider"
+            "ETOS Environment Provider",
+            os.getenv("HOSTNAME", "Unknown"),
+            "Environment Provider",
         )
         self.kubernetes = Kubernetes()
         self.environment_provider_config = Config(self.etos, self.kubernetes, suite_runner_ids)
@@ -376,7 +383,11 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         for test in request.spec.splitter.tests:
             test_runners.setdefault(
                 test.execution.testRunner,
-                {"docker": test.execution.testRunner, "priority": 1, "unsplit_recipes": []},
+                {
+                    "docker": test.execution.testRunner,
+                    "priority": 1,
+                    "unsplit_recipes": [],
+                },
             )
             test_runners[test.execution.testRunner]["unsplit_recipes"].append(test)
 
@@ -467,7 +478,11 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
                 # Add sub suites to test suite structure and send environment events to the ESR.
                 for iut, suite in test_runners[test_runner].get("iuts", {}).items():
                     sub_suite = test_suite.add(
-                        request, test_runner, iut, suite, test_runners[test_runner]["priority"]
+                        request,
+                        test_runner,
+                        iut,
+                        suite,
+                        test_runners[test_runner]["priority"],
                     )
                     if self.environment_provider_config.etos_controller:
                         self.send_environment_events(
@@ -561,6 +576,13 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             if triggered is not None:
                 self.etos.events.send_activity_finished(triggered, outcome)
 
+    def _run_with_span(self, request: EnvironmentRequestSchema) -> None:
+        """Run the environment provider task with an attached span."""
+        with self.tracer.start_as_current_span(
+            "request_environment", context=get_current_context()
+        ):
+            self._run(request)
+
     def _configure_provider(self, provider_db: ETCDPath, provider_spec: dict, name: str):
         """Configure a single provider for a testrun."""
         self.logger.info("Saving provider with name %r in %r", name, provider_db)
@@ -616,14 +638,19 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
             for request in self.environment_provider_config.requests:
                 if self.environment_provider_config.etos_controller:
                     self.configure_environment_provider(request)
-                self.configure(request)
-                self._run(request)
+                    self.configure(request)
+                    self._run_with_span(request)
+                else:
+                    self.configure(request)
+                    self._run(request)
             return {"error": None}
         except Exception as exception:  # pylint:disable=broad-except
             self.cleanup()
             traceback.print_exc()
             self.logger.error(
-                "Failed creating environment for test. %r", exception, extra={"user_log": True}
+                "Failed creating environment for test. %r",
+                exception,
+                extra={"user_log": True},
             )
             raise
         finally:
@@ -651,7 +678,10 @@ def get_environment():
     """Entrypoint for getting an environment."""
     logformat = "[%(asctime)s] %(levelname)s:%(message)s"
     logging.basicConfig(
-        level=logging.INFO, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S"
+        level=logging.INFO,
+        stream=sys.stdout,
+        format=logformat,
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
     logging.getLogger("gql").setLevel(logging.WARNING)
     try:
