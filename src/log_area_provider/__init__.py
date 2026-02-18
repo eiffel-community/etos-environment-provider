@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS log area provider module."""
+
 import pathlib
 
 from .log_area_provider import LogAreaProvider

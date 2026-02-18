@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """JSONTas uuid generate data structure module."""
+
 from uuid import uuid4
 
 from jsontas.data_structures.datastructure import DataStructure

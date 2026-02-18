@@ -14,13 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """OpenTelemetry-related code."""
+
 import logging
 import os
 
 import opentelemetry
 from opentelemetry.propagators.textmap import Getter
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
-
 
 LOGGER = logging.getLogger(__name__)
 

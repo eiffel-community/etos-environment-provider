@@ -34,6 +34,8 @@ Repository = "https://github.com/eiffel-community/etos-environment-provider"
 [project.optional-dependencies]
 testing = ["pytest", "pytest-cov"]
 
+[tool.black]
+line-length = 100
 
 [tool.build_sphinx]
 source_dir = "docs"

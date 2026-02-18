@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Log area provider check in module."""
+
 import logging
 
 from jsontas.jsontas import JsonTas
