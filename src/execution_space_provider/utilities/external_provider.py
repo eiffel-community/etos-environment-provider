@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """External Execution Space provider."""
+
 import logging
 import json
 import os
@@ -237,7 +238,7 @@ class ExternalProvider:
         host = self.ruleset.get("start", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
         TraceContextTextMapPropagator().inject(headers)
-        span = opentelemetry.trace.get_current_span()  # type:ignore
+        span = opentelemetry.trace.get_current_span()  # type: ignore
         span.set_attribute(SpanAttributes.HTTP_HOST, host)
         span.set_attribute("http.request.body", json.dumps(data))
         for header, value in headers.items():

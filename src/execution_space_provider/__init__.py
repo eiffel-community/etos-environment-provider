@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS execution space provider module."""
+
 import pathlib
 
 from .execution_space_provider import ExecutionSpaceProvider
