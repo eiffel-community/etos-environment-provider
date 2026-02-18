@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS Environment Provider splitter module."""
+
 import time
 from copy import deepcopy
 from typing import Any, Iterable, Iterator

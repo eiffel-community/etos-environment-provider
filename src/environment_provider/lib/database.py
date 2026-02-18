@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETCD helpers."""
+
 import os
 from threading import Event
 from typing import Any, Iterator, Optional, Union

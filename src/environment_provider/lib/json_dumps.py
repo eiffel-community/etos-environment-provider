@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """JSONTas JSON dump to string data structure module."""
+
 import json
 
 from jsontas.data_structures.datastructure import DataStructure
