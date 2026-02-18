@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """JSONTas join data structure module."""
+
 from jsontas.data_structures.datastructure import DataStructure
 
 # pylint:disable=too-few-public-methods

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Backend for the environment requests."""
+
 import json
 import time
 import sys
@@ -35,7 +36,6 @@ from iut_provider import IutProvider
 from iut_provider.iut import Iut
 from log_area_provider import LogAreaProvider
 from log_area_provider.log_area import LogArea
-
 
 TRACER = trace.get_tracer(__name__)
 # REGEX for matching /testrun/tercc-id/suite/main-suite-id/subsuite/subsuite-id/suite.

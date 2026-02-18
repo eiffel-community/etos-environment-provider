@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ETOS Environment Provider configuration module."""
+
 import logging
 import time
 import json
