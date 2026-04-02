@@ -51,7 +51,7 @@ class EnvVarContextGetter(Getter):
 
 
 def get_current_context() -> opentelemetry.context.context.Context:
-    """Get current context propagated via environment variable OTEL_CONTEXT."""
+    """Get current context propagated via environment variables."""
     propagator = CompositePropagator(
         (
             TraceContextTextMapPropagator(),
