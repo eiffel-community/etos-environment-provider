@@ -19,6 +19,9 @@ import logging
 import os
 
 import opentelemetry
+from opentelemetry.baggage.propagation import W3CBaggagePropagator
+from opentelemetry.propagators._envcarrier import EnvironmentGetter
+from opentelemetry.propagators.composite import CompositePropagator
 from opentelemetry.propagators.textmap import Getter
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
@@ -49,6 +52,19 @@ class EnvVarContextGetter(Getter):
 
 def get_current_context() -> opentelemetry.context.context.Context:
     """Get current context propagated via environment variable OTEL_CONTEXT."""
-    propagator = TraceContextTextMapPropagator()
-    ctx = propagator.extract(carrier="OTEL_CONTEXT", getter=EnvVarContextGetter())
+    propagator = CompositePropagator(
+        (
+            TraceContextTextMapPropagator(),
+            W3CBaggagePropagator(),
+        )
+    )
+    ctx = opentelemetry.context.get_current()
+    old_style_traceparent = EnvironmentGetter().get({}, "OTEL_CONTEXT")
+    if old_style_traceparent is not None:
+        LOGGER.warning(
+            "OTEL_CONTEXT environment variable is deprecated; use TRACEPARENT and BAGGAGE "
+            "variables instead."
+        )
+        ctx = propagator.extract(carrier="OTEL_CONTEXT", context=ctx, getter=EnvVarContextGetter())
+    ctx = propagator.extract(carrier={}, context=ctx, getter=EnvironmentGetter())
     return ctx
