@@ -20,7 +20,7 @@ dependencies = [
     "jsontas>=1.4.1,<2.0.0",
     "packageurl-python~=0.11",
     "etcd3gw~=2.3",
-    "etos-lib==5.2.1",
+    "etos-lib==5.3.0",
     "opentelemetry-api~=1.40",
     "opentelemetry-exporter-otlp~=1.40",
     "opentelemetry-sdk~=1.40",
