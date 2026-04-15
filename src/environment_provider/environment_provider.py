@@ -15,10 +15,10 @@
 # limitations under the License.
 """ETOS Environment Provider module."""
 
-import sys
 import json
 import logging
 import os
+import sys
 import time
 import traceback
 import uuid
@@ -27,36 +27,33 @@ from tempfile import NamedTemporaryFile
 from typing import Any, Optional
 
 from etos_lib.etos import ETOS
+from etos_lib.kubernetes import Environment, Kubernetes, Provider
+from etos_lib.kubernetes.schemas import Environment as EnvironmentSchema
+from etos_lib.kubernetes.schemas import EnvironmentRequest as EnvironmentRequestSchema
+from etos_lib.kubernetes.schemas import EnvironmentSpec, Metadata
+from etos_lib.kubernetes.schemas import Provider as ProviderSchema
+from etos_lib.kubernetes.schemas import Test
+from etos_lib.kubernetes.schemas.common import OwnerReference
 from etos_lib.lib.events import EiffelEnvironmentDefinedEvent
 from etos_lib.logging.logger import FORMAT_CONFIG
 from etos_lib.opentelemetry.semconv import Attributes as SemConvAttributes
-from etos_lib.kubernetes import Kubernetes, Environment, Provider
-from etos_lib.kubernetes.schemas.common import OwnerReference
-from etos_lib.kubernetes.schemas import (
-    Environment as EnvironmentSchema,
-    EnvironmentSpec,
-    Metadata,
-)
-from etos_lib.kubernetes.schemas import Test
-from etos_lib.kubernetes.schemas import Provider as ProviderSchema
-from etos_lib.kubernetes.schemas import EnvironmentRequest as EnvironmentRequestSchema
 from jsontas.jsontas import JsonTas
-from packageurl import PackageURL
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
+from packageurl import PackageURL
 
 from execution_space_provider.execution_space import ExecutionSpace
 from log_area_provider.log_area import LogArea
 
 from .lib.config import Config
-from .lib.otel_tracing import get_current_context
+from .lib.database import ETCDPath
 from .lib.encrypt import Encrypt
 from .lib.graphql import request_main_suite
 from .lib.join import Join
 from .lib.json_dumps import JsonDumps
 from .lib.log_area import LogArea
+from .lib.otel_tracing import get_current_context
 from .lib.registry import ProviderRegistry
-from .lib.database import ETCDPath
 from .lib.test_suite import TestSuite
 from .lib.uuid_generate import UuidGenerate
 from .splitter.split import Splitter
@@ -525,7 +522,7 @@ class EnvironmentProvider:  # pylint:disable=too-many-instance-attributes
         :return: a test suite started event.
         """
         main_suite = request_main_suite(self.etos, test_suite_id)
-        timeout = time.time() + 30
+        timeout = time.time() + self.etos.config.get("EVENT_DATA_TIMEOUT")
         while main_suite is None and time.time() < timeout:
             main_suite = request_main_suite(self.etos, test_suite_id)
             time.sleep(5)

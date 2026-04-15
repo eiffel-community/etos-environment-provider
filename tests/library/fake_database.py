@@ -19,6 +19,7 @@ from queue import Queue
 from threading import Event, RLock, Timer
 from typing import Any, Iterator, Optional
 
+from etcd3gw import Etcd3Client
 from etcd3gw.lease import Lease
 
 # pylint:disable=unused-argument
@@ -87,7 +88,7 @@ class FakeDatabase:
         # ttl is unused since we do not actually make the post request that the regular
         # etcd client does. First argument to `Lease` is the ID that was returned by the
         # etcd server.
-        return Lease(len(self.expire) - 1)
+        return Lease(len(self.expire) - 1, client=Etcd3Client())
 
     def get(self, path: str) -> list[bytes]:
         """Get an item from database."""
