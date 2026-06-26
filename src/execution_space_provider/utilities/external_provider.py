@@ -206,6 +206,7 @@ class ExternalProvider:
             "maximum_amount": maximum_amount,
             "identity": self.identity.to_string(),
             "test_runner": self.dataset.get("test_runner"),
+            "iut": self.dataset.get("iut"),
             "environment": {  # All environments must be string
                 "RABBITMQ_HOST": rabbitmq.get("host"),
                 "RABBITMQ_USERNAME": rabbitmq.get("username"),
