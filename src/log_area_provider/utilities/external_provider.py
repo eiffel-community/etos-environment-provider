@@ -185,6 +185,8 @@ class ExternalProvider:
             "tercc": self.dataset.get("tercc"),
             "dataset": self.dataset.get("dataset"),
             "context": self.dataset.get("context"),
+            "iut": self.dataset.get("iut"),
+            "executor": self.dataset.get("executor"),
         }
         host = self.ruleset.get("start", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}
