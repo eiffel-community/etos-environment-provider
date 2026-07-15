@@ -201,12 +201,13 @@ class ExternalProvider:
                 etos_rabbitmq_password.encode(), os.getenv("ETOS_ENCRYPTION_KEY", "")
             )
         source = self.etos.config.get("source") or {}
+        iut = self.dataset.get("iut")
         data = {
             "minimum_amount": minimum_amount,
             "maximum_amount": maximum_amount,
             "identity": self.identity.to_string(),
             "test_runner": self.dataset.get("test_runner"),
-            "iut": self.dataset.get("iut"),
+            "iut": iut.as_dict if iut is not None else None,
             "environment": {  # All environments must be string
                 "RABBITMQ_HOST": rabbitmq.get("host"),
                 "RABBITMQ_USERNAME": rabbitmq.get("username"),
