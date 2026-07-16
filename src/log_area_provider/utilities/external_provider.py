@@ -175,6 +175,8 @@ class ExternalProvider:
         :return: The ID of the external log area provider request.
         """
         self.logger.debug("Start external log area provider")
+        iut = self.dataset.get("iut")
+        executor = self.dataset.get("executor")
         data = {
             "minimum_amount": minimum_amount,
             "maximum_amount": maximum_amount,
@@ -185,8 +187,8 @@ class ExternalProvider:
             "tercc": self.dataset.get("tercc"),
             "dataset": self.dataset.get("dataset"),
             "context": self.dataset.get("context"),
-            "iut": self.dataset.get("iut"),
-            "executor": self.dataset.get("executor"),
+            "iut": iut.as_dict if iut is not None else None,
+            "executor": executor.as_dict if executor is not None else None,
         }
         host = self.ruleset.get("start", {}).get("host")
         headers = {"X-ETOS-ID": self.identifier}

@@ -31,6 +31,7 @@ from execution_space_provider.exceptions import (
 )
 from execution_space_provider.execution_space import ExecutionSpace
 from execution_space_provider.utilities.external_provider import ExternalProvider
+from iut_provider.iut import Iut
 from tests.library.fake_server import FakeServer
 
 
@@ -78,6 +79,46 @@ class TestExternalExecutionSpace(unittest.TestCase):
             start_id = provider.start(1, 2)
             self.logger.info("STEP: Verify that the ID from the start request is returned.")
             self.assertEqual(start_id, expected_start_id)
+
+    def test_provider_start_serializes_iut(self):
+        """Test that a checked out IUT is serialized in the start request.
+
+        Approval criteria:
+            - The start request payload shall be JSON serializable when an IUT is
+              present in the dataset.
+
+        Test steps::
+            1. Initialize an external provider with an IUT in the dataset.
+            2. Send a start request.
+            3. Verify that the IUT was sent as a dictionary.
+        """
+        etos = ETOS("testing_etos", "testing_etos", "testing_etos")
+        jsontas = JsonTas()
+        iut = Iut(provider_id="test", identity=PackageURL.from_string("pkg:testing/etos"))
+        jsontas.dataset.merge(
+            {
+                "identity": PackageURL.from_string("pkg:testing/etos"),
+                "artifact_id": "artifactid",
+                "artifact_created": "artifactcreated",
+                "artifact_published": "artifactpublished",
+                "tercc": "tercc",
+                "dataset": {},
+                "context": "context",
+                "iut": iut,
+            }
+        )
+        expected_start_id = "123"
+
+        with FakeServer("ok", {"id": expected_start_id}) as server:
+            ruleset = {"id": "test_provider_start_serializes_iut", "start": {"host": server.host}}
+            self.logger.info("STEP: Initialize an external provider with an IUT in the dataset.")
+            provider = ExternalProvider(etos, jsontas, ruleset)
+            provider.http.adapter.max_retries.status = 1
+            self.logger.info("STEP: Send a start request.")
+            start_id = provider.start(1, 2)
+            self.logger.info("STEP: Verify that the IUT was sent as a dictionary.")
+            self.assertEqual(start_id, expected_start_id)
+            self.assertEqual(server.requests[0]["iut"], iut.as_dict)
 
     def test_provider_start_http_exception(self):
         """Test that the start method tries again if there's an HTTP error.
