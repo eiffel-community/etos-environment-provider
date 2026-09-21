@@ -19,7 +19,7 @@ import logging
 import unittest
 
 from etos_lib import ETOS
-from etos_lib.kubernetes.schemas.environment_request import Splitter as SplitterSchema
+from etos_lib.kubernetes.schemas import Splitter as SplitterSchema
 
 from environment_provider.splitter.split import Splitter
 from iut_provider.iut import Iut

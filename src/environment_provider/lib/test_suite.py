@@ -15,7 +15,7 @@
 # limitations under the License.
 """Test suite module."""
 
-from etos_lib.kubernetes.schemas.environment_request import EnvironmentRequest
+from etos_lib.kubernetes.schemas import EnvironmentRequest
 from iut_provider.iut import Iut
 
 from .config import Config

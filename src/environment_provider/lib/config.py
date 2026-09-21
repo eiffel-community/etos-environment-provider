@@ -24,8 +24,8 @@ from typing import Optional
 from urllib3.exceptions import MaxRetryError
 from etos_lib import ETOS
 from etos_lib.lib.events import EiffelActivityTriggeredEvent
-from etos_lib.kubernetes.schemas.testrun import Suite
-from etos_lib.kubernetes.schemas.environment_request import (
+from etos_lib.kubernetes.schemas import (
+    Suite,
     EnvironmentRequest as EnvironmentRequestSchema,
     EnvironmentRequestSpec,
     EnvironmentProviders,

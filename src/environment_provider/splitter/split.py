@@ -20,7 +20,7 @@ from copy import deepcopy
 from typing import Any, Iterable, Iterator
 
 from etos_lib import ETOS
-from etos_lib.kubernetes.schemas.environment_request import Splitter as SplitterSchema
+from etos_lib.kubernetes.schemas import Splitter as SplitterSchema
 
 from iut_provider.iut import Iut
 
